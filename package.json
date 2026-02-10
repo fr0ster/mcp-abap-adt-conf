@@ -1,0 +1,28 @@
+{
+  "name": "@mcp-abap-adt/configurator",
+  "version": "0.0.1",
+  "description": "MCP client configurator for mcp-abap-adt and mcp-abap-adt-proxy",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fr0ster/mcp-abap-adt-conf.git"
+  },
+  "author": "Oleksii Kyslytsia <oleksij.kyslytsja@gmail.com>",
+  "bin": {
+    "mcp-conf": "./bin/mcp-conf.js"
+  },
+  "files": [
+    "bin/",
+    "docs/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "dependencies": {
+    "@iarna/toml": "^2.2.5",
+    "yaml": "^2.8.1"
+  }
+}
