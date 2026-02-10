@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.0.3] - 2026-02-10
+### Added
+- Command-based CLI interface: `add`, `rm`, `ls`, `enable`, `disable`, `where`.
+- `--global`/`--local` scopes with per-client validation and updated config paths.
+- Claude `--all-projects` and `--project` targeting for global config operations.
+- `AGENTS.md` contributor guidelines.
+
+### Changed
+- Claude HTTP transport writes `type: "http"` for both global and project configs.
+- Claude enable/disable always writes status to `~/.claude.json`; local scope verifies `.mcp.json`.
+- Help output is now per-command (`mcp-conf <command> --help` or `mcp-conf help <command>`).
+- OpenCode global config path defaults to `~/.config/opencode/opencode.json` (Windows: `%APPDATA%\\opencode\\opencode.json`).
+- Documentation updated for new commands and scope behavior.
+
 ## [0.0.2] - 2026-02-10
 ### Added
 - Biome linting + format scripts and configuration.

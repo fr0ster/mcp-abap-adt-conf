@@ -22,6 +22,10 @@ try {
 }
 
 const args = process.argv.slice(2);
+const action = args[0] && !args[0].startsWith("-") ? args[0] : null;
+if (action && ["add", "rm", "ls", "enable", "disable", "where", "help"].includes(action)) {
+  args.shift();
+}
 const options = {
   clients: [],
   envPath: null,
@@ -29,18 +33,29 @@ const options = {
   name: null,
   transport: "stdio",
   command: "mcp-abap-adt",
+  scope: null,
   dryRun: false,
   force: false,
   disabled: false,
   toggle: false,
   remove: false,
+  list: false,
+  allProjects: false,
+  projectPath: null,
+  where: false,
   url: null,
   headers: {},
   timeout: 60,
 };
 
-if (args.includes("--help") || args.includes("-h")) {
-  printHelp();
+if (args.includes("--help") || args.includes("-h") || action === "help") {
+  const helpAction =
+    action === "help"
+      ? args[0]
+      : action && ["add", "rm", "ls", "enable", "disable", "where"].includes(action)
+        ? action
+        : null;
+  printHelp(helpAction);
   process.exit(0);
 }
 
@@ -63,6 +78,21 @@ for (let i = 0; i < args.length; i += 1) {
     i += 1;
   } else if (arg === "--command") {
     options.command = args[i + 1];
+    i += 1;
+  } else if (arg === "--global") {
+    if (options.scope && options.scope !== "global") {
+      fail("Choose either --global or --local (not both).");
+    }
+    options.scope = "global";
+  } else if (arg === "--local") {
+    if (options.scope && options.scope !== "local") {
+      fail("Choose either --global or --local (not both).");
+    }
+    options.scope = "local";
+  } else if (arg === "--all-projects") {
+    options.allProjects = true;
+  } else if (arg === "--project") {
+    options.projectPath = args[i + 1];
     i += 1;
   } else if (arg === "--url") {
     options.url = args[i + 1];
@@ -92,18 +122,62 @@ for (let i = 0; i < args.length; i += 1) {
   }
 }
 
+if (!action || !["add", "rm", "ls", "enable", "disable", "where"].includes(action)) {
+  fail("Provide a command: add | rm | ls | enable | disable | where.");
+}
+
 if (options.clients.length === 0) {
   fail("Provide at least one --client.");
 }
 
-if (!options.name) {
+if (!["ls"].includes(action) && !options.name) {
   fail("Provide --name <serverName> (required).");
 }
 
 const transportNormalized = options.transport === "http" ? "streamableHttp" : options.transport;
 options.transport = transportNormalized;
 
-const requiresConnectionParams = !options.remove && !options.toggle;
+if (action === "rm") {
+  options.remove = true;
+}
+if (action === "ls") {
+  options.list = true;
+}
+if (action === "enable") {
+  options.toggle = true;
+  options.disabled = false;
+}
+if (action === "disable") {
+  options.toggle = true;
+  options.disabled = true;
+}
+if (action === "where") {
+  options.where = true;
+}
+
+if (options.remove && action !== "rm") {
+  fail("Use the rm command instead of --remove.");
+}
+if (options.list && options.toggle) {
+  fail("The ls command does not support --enable/--disable.");
+}
+if (options.remove && options.toggle) {
+  fail("The rm command does not support --enable/--disable.");
+}
+if (options.allProjects && !options.list && !options.toggle && !options.remove && !options.where) {
+  fail("--all-projects is only supported for rm/enable/disable/ls/where.");
+}
+if (options.projectPath && options.allProjects) {
+  fail("Use either --project or --all-projects (not both).");
+}
+if (options.where && (options.list || options.remove || options.toggle)) {
+  fail("The where command does not support ls/rm/enable/disable flags.");
+}
+if (options.projectPath && action === "add" && options.scope !== "global") {
+  fail("--project is only supported for Claude global config.");
+}
+
+const requiresConnectionParams = !options.remove && !options.toggle && !options.list && !options.where;
 
 if (requiresConnectionParams && options.transport === "stdio") {
   if (!options.envPath && !options.mcpDestination) {
@@ -135,44 +209,135 @@ const serverArgsRaw = [
 ];
 const serverArgs = serverArgsRaw.filter(Boolean);
 
-for (const client of options.clients) {
-  switch (client) {
+  for (const client of options.clients) {
+    const scope = options.scope || getDefaultScope(client);
+    if (options.projectPath && client !== "claude") {
+      fail("--project is only supported for Claude.");
+    }
+    switch (client) {
     case "cline":
-      writeJsonConfig(getClinePath(platform, home, appData), options.name, serverArgs, "cline");
+      requireScope("Cline", ["global"], scope);
+      if (options.list) {
+        listJsonConfig(getClinePath(platform, home, appData), "cline");
+      } else if (options.where) {
+        whereJsonConfig(getClinePath(platform, home, appData), "cline", options.name);
+      } else {
+        writeJsonConfig(getClinePath(platform, home, appData), options.name, serverArgs, "cline");
+      }
       break;
     case "codex":
       if (options.transport === "sse") {
         fail("Codex does not support SSE transport.");
       }
-      writeCodexConfig(getCodexPath(platform, home, userProfile), options.name, serverArgs);
+      requireScope("Codex", ["global"], scope);
+      if (options.list) {
+        listCodexConfig(getCodexPath(platform, home, userProfile));
+      } else if (options.where) {
+        whereCodexConfig(getCodexPath(platform, home, userProfile), options.name);
+      } else {
+        writeCodexConfig(getCodexPath(platform, home, userProfile), options.name, serverArgs);
+      }
       break;
     case "claude":
-      writeClaudeConfig(getClaudePath(platform, home, appData), options.name, serverArgs);
+      requireScope("Claude", ["global", "local"], scope);
+      const claudeToggleScope = options.toggle ? "global" : scope;
+      if (options.allProjects && claudeToggleScope !== "global") {
+        fail("--all-projects is only supported for Claude global config.");
+      }
+      if (options.projectPath && claudeToggleScope !== "global") {
+        fail("--project is only supported for Claude global config.");
+      }
+      if (options.toggle && scope === "local") {
+        const localPath = getClaudePath(platform, home, appData, "local");
+        if (!claudeLocalHasServer(localPath, options.name)) {
+          fail(`Server "${options.name}" not found in ${localPath}.`);
+        }
+      }
+      if (options.list) {
+        listClaudeConfig(
+          getClaudePath(platform, home, appData, claudeToggleScope),
+          options.allProjects,
+          options.projectPath,
+        );
+      } else if (options.where) {
+        whereClaudeConfig(
+          getClaudePath(platform, home, appData, claudeToggleScope),
+          options.name,
+          options.allProjects,
+          options.projectPath,
+        );
+      } else {
+        writeClaudeConfig(
+          getClaudePath(platform, home, appData, claudeToggleScope),
+          options.name,
+          serverArgs,
+        );
+      }
       break;
     case "goose":
-      writeGooseConfig(getGoosePath(platform, home, appData), options.name, serverArgs);
+      requireScope("Goose", ["global"], scope);
+      if (options.list) {
+        listGooseConfig(getGoosePath(platform, home, appData));
+      } else if (options.where) {
+        whereGooseConfig(getGoosePath(platform, home, appData), options.name);
+      } else {
+        writeGooseConfig(getGoosePath(platform, home, appData), options.name, serverArgs);
+      }
       break;
     case "opencode":
-      writeJsonConfig(getOpenCodePath(), options.name, serverArgs, "opencode");
+      requireScope("OpenCode", ["global", "local"], scope);
+      if (options.list) {
+        listJsonConfig(getOpenCodePath(platform, home, appData, scope), "opencode");
+      } else if (options.where) {
+        whereJsonConfig(getOpenCodePath(platform, home, appData, scope), "opencode", options.name);
+      } else {
+        writeJsonConfig(
+          getOpenCodePath(platform, home, appData, scope),
+          options.name,
+          serverArgs,
+          "opencode",
+        );
+      }
       break;
     case "copilot":
-      writeJsonConfig(getCopilotPath(), options.name, serverArgs, "copilot");
+      requireScope("GitHub Copilot", ["local"], scope);
+      if (options.list) {
+        listJsonConfig(getCopilotPath(), "copilot");
+      } else if (options.where) {
+        whereJsonConfig(getCopilotPath(), "copilot", options.name);
+      } else {
+        writeJsonConfig(getCopilotPath(), options.name, serverArgs, "copilot");
+      }
       break;
     case "cursor":
-      writeJsonConfig(
-        getCursorPath(platform, home, userProfile),
-        options.name,
-        serverArgs,
-        "cursor",
-      );
+      requireScope("Cursor", ["global", "local"], scope);
+      if (options.list) {
+        listJsonConfig(getCursorPath(platform, home, userProfile, scope), "cursor");
+      } else if (options.where) {
+        whereJsonConfig(getCursorPath(platform, home, userProfile, scope), "cursor", options.name);
+      } else {
+        writeJsonConfig(
+          getCursorPath(platform, home, userProfile, scope),
+          options.name,
+          serverArgs,
+          "cursor",
+        );
+      }
       break;
     case "windsurf":
-      writeJsonConfig(
-        getWindsurfPath(platform, home, userProfile),
-        options.name,
-        serverArgs,
-        "windsurf",
-      );
+      requireScope("Windsurf", ["global"], scope);
+      if (options.list) {
+        listJsonConfig(getWindsurfPath(platform, home, userProfile), "windsurf");
+      } else if (options.where) {
+        whereJsonConfig(getWindsurfPath(platform, home, userProfile), "windsurf", options.name);
+      } else {
+        writeJsonConfig(
+          getWindsurfPath(platform, home, userProfile),
+          options.name,
+          serverArgs,
+          "windsurf",
+        );
+      }
       break;
     default:
       fail(`Unknown client: ${client}`);
@@ -210,7 +375,10 @@ function getCodexPath(platformValue, homeDir, userProfileDir) {
   return path.join(homeDir, ".codex", "config.toml");
 }
 
-function getClaudePath(platformValue, homeDir, appDataDir) {
+function getClaudePath(platformValue, homeDir, appDataDir, scopeValue) {
+  if (scopeValue === "local") {
+    return path.join(process.cwd(), ".mcp.json");
+  }
   if (platformValue === "darwin") {
     return path.join(
       homeDir,
@@ -233,7 +401,10 @@ function getGoosePath(platformValue, homeDir, appDataDir) {
   return path.join(homeDir, ".config", "goose", "config.yaml");
 }
 
-function getCursorPath(platformValue, homeDir, userProfileDir) {
+function getCursorPath(platformValue, homeDir, userProfileDir, scopeValue) {
+  if (scopeValue === "local") {
+    return path.join(process.cwd(), ".cursor", "mcp.json");
+  }
   const base = platformValue === "win32" ? userProfileDir : homeDir;
   return path.join(base, ".cursor", "mcp.json");
 }
@@ -242,8 +413,14 @@ function getCopilotPath() {
   return path.join(process.cwd(), ".vscode", "mcp.json");
 }
 
-function getOpenCodePath() {
-  return path.join(process.cwd(), "opencode.json");
+function getOpenCodePath(platformValue, homeDir, appDataDir, scopeValue) {
+  if (scopeValue === "local") {
+    return path.join(process.cwd(), "opencode.json");
+  }
+  if (platformValue === "win32") {
+    return path.join(appDataDir, "opencode", "opencode.json");
+  }
+  return path.join(homeDir, ".config", "opencode", "opencode.json");
 }
 
 function getWindsurfPath(platformValue, homeDir, userProfileDir) {
@@ -251,6 +428,50 @@ function getWindsurfPath(platformValue, homeDir, userProfileDir) {
     return path.join(userProfileDir, ".codeium", "windsurf", "mcp_config.json");
   }
   return path.join(homeDir, ".codeium", "windsurf", "mcp_config.json");
+}
+
+function requireScope(clientLabel, allowedScopes, requestedScope) {
+  if (!allowedScopes.includes(requestedScope)) {
+    fail(
+      `${clientLabel} supports ${allowedScopes.join("/")} configuration only. ` +
+        `Use --${allowedScopes[0]}.`,
+    );
+  }
+}
+
+function getDefaultScope(clientType) {
+  if (clientType === "copilot") {
+    return "local";
+  }
+  return "global";
+}
+
+function resolveProjectSelector(data, projectPath) {
+  if (!projectPath) {
+    return resolveClaudeProjectKey(data);
+  }
+  if (!data.projects) {
+    return projectPath;
+  }
+  if (data.projects[projectPath]) {
+    return projectPath;
+  }
+  let desiredReal;
+  try {
+    desiredReal = fs.realpathSync(projectPath);
+  } catch {
+    return projectPath;
+  }
+  for (const key of Object.keys(data.projects)) {
+    try {
+      if (fs.realpathSync(key) === desiredReal) {
+        return key;
+      }
+    } catch {
+      // ignore invalid paths
+    }
+  }
+  return projectPath;
 }
 
 function getDefaultDisabled(clientType) {
@@ -384,30 +605,7 @@ function writeClaudeConfig(filePath, serverName, argsArray) {
   const data = readJson(filePath);
   const isDesktopConfig =
     filePath.endsWith(".claude.json") || filePath.endsWith("claude_desktop_config.json");
-  const projectPath = process.cwd();
-  const resolveProjectKey = () => {
-    const desired = projectPath;
-    if (!data.projects || data.projects[desired]) {
-      return desired;
-    }
-    let desiredReal;
-    try {
-      desiredReal = fs.realpathSync(desired);
-    } catch {
-      return desired;
-    }
-    const keys = Object.keys(data.projects || {});
-    for (const key of keys) {
-      try {
-        if (fs.realpathSync(key) === desiredReal) {
-          return key;
-        }
-      } catch {
-        // ignore invalid paths
-      }
-    }
-    return desired;
-  };
+  const resolveProjectKey = () => resolveProjectSelector(data, options.projectPath);
   const updateClaudeMcpLists = (projectNode) => {
     projectNode.enabledMcpServers = projectNode.enabledMcpServers || [];
     projectNode.disabledMcpServers = projectNode.disabledMcpServers || [];
@@ -450,15 +648,35 @@ function writeClaudeConfig(filePath, serverName, argsArray) {
   };
   if (options.remove) {
     if (isDesktopConfig) {
-      if (!data.projects?.[projectPath]?.mcpServers?.[serverName]) {
-        fail(`Server "${serverName}" not found for ${projectPath}.`);
+      if (options.allProjects) {
+        const projects = Object.keys(data.projects || {});
+        let removed = false;
+        for (const key of projects) {
+          if (data.projects?.[key]?.mcpServers?.[serverName]) {
+            delete data.projects[key].mcpServers[serverName];
+            const projectNode = data.projects[key];
+            projectNode.enabledMcpServers =
+              projectNode.enabledMcpServers?.filter((name) => name !== serverName) || [];
+            projectNode.disabledMcpServers =
+              projectNode.disabledMcpServers?.filter((name) => name !== serverName) || [];
+            removed = true;
+          }
+        }
+        if (!removed) {
+          fail(`Server "${serverName}" not found in any Claude projects.`);
+        }
+      } else {
+        const projectKey = resolveProjectKey();
+        if (!data.projects?.[projectKey]?.mcpServers?.[serverName]) {
+          fail(`Server "${serverName}" not found for ${projectKey}.`);
+        }
+        delete data.projects[projectKey].mcpServers[serverName];
+        const projectNode = data.projects[projectKey];
+        projectNode.enabledMcpServers =
+          projectNode.enabledMcpServers?.filter((name) => name !== serverName) || [];
+        projectNode.disabledMcpServers =
+          projectNode.disabledMcpServers?.filter((name) => name !== serverName) || [];
       }
-      delete data.projects[projectPath].mcpServers[serverName];
-      const projectNode = data.projects[projectPath];
-      projectNode.enabledMcpServers =
-        projectNode.enabledMcpServers?.filter((name) => name !== serverName) || [];
-      projectNode.disabledMcpServers =
-        projectNode.disabledMcpServers?.filter((name) => name !== serverName) || [];
     } else {
       data.mcpServers = data.mcpServers || {};
       if (!data.mcpServers[serverName]) {
@@ -474,6 +692,42 @@ function writeClaudeConfig(filePath, serverName, argsArray) {
   }
   if (isDesktopConfig) {
     data.projects = data.projects || {};
+    if (options.toggle) {
+      if (options.allProjects) {
+        const projects = Object.keys(data.projects || {});
+        let toggled = false;
+        for (const key of projects) {
+          if (!data.projects[key]) {
+            continue;
+          }
+          data.projects[key].mcpServers = data.projects[key].mcpServers || {};
+          if (!data.projects[key].mcpServers[serverName]) {
+            continue;
+          }
+          updateClaudeMcpLists(data.projects[key]);
+          toggled = true;
+        }
+        if (!toggled) {
+          fail(`Server "${serverName}" not found in any Claude projects.`);
+        }
+        writeFile(filePath, JSON.stringify(data, null, 2));
+        return;
+      }
+      const projectKey = resolveProjectKey();
+      if (!data.projects[projectKey]) {
+        data.projects[projectKey] = {
+          allowedTools: [],
+          mcpContextUris: [],
+          mcpServers: {},
+          enabledMcpServers: [],
+          disabledMcpServers: [],
+        };
+      }
+      data.projects[projectKey].mcpServers = data.projects[projectKey].mcpServers || {};
+      updateClaudeMcpLists(data.projects[projectKey]);
+      writeFile(filePath, JSON.stringify(data, null, 2));
+      return;
+    }
     const projectKey = resolveProjectKey();
     if (!data.projects[projectKey]) {
       data.projects[projectKey] = {
@@ -488,14 +742,6 @@ function writeClaudeConfig(filePath, serverName, argsArray) {
     data.projects[projectKey].disabledMcpServers =
       data.projects[projectKey].disabledMcpServers || [];
     data.projects[projectKey].mcpServers = data.projects[projectKey].mcpServers || {};
-    if (options.toggle) {
-      if (!data.projects[projectKey].mcpServers[serverName]) {
-        fail(`Server "${serverName}" not found for ${projectKey}.`);
-      }
-      updateClaudeMcpLists(data.projects[projectKey]);
-      writeFile(filePath, JSON.stringify(data, null, 2));
-      return;
-    }
     if (data.projects[projectKey].mcpServers[serverName] && !options.force) {
       fail(`Server "${serverName}" already exists for ${projectKey}. Use --force to overwrite.`);
     }
@@ -532,7 +778,7 @@ function writeClaudeConfig(filePath, serverName, argsArray) {
       };
     } else {
       const entry = {
-        type: options.transport,
+        type: options.transport === "streamableHttp" ? "http" : options.transport,
         url: options.url,
         timeout: options.timeout,
       };
@@ -543,6 +789,30 @@ function writeClaudeConfig(filePath, serverName, argsArray) {
     }
   }
   writeFile(filePath, JSON.stringify(data, null, 2));
+}
+
+function resolveClaudeProjectKey(data, projectPath = process.cwd()) {
+  const desired = projectPath;
+  if (!data.projects || data.projects[desired]) {
+    return desired;
+  }
+  let desiredReal;
+  try {
+    desiredReal = fs.realpathSync(desired);
+  } catch {
+    return desired;
+  }
+  const keys = Object.keys(data.projects || {});
+  for (const key of keys) {
+    try {
+      if (fs.realpathSync(key) === desiredReal) {
+        return key;
+      }
+    } catch {
+      // ignore invalid paths
+    }
+  }
+  return desired;
 }
 
 function writeCodexConfig(filePath, serverName, argsArray) {
@@ -663,6 +933,137 @@ function writeGooseConfig(filePath, serverName, argsArray) {
   writeFile(filePath, yaml.stringify(data));
 }
 
+function listJsonConfig(filePath, clientType) {
+  const data = readJson(filePath);
+  let store;
+  if (clientType === "opencode") {
+    store = data.mcp || {};
+  } else if (clientType === "copilot") {
+    store = data.servers || {};
+  } else {
+    store = data.mcpServers || {};
+  }
+  outputList(filePath, Object.keys(store));
+}
+
+function listCodexConfig(filePath) {
+  if (!toml) {
+    fail("TOML dependency not available. Install dependencies and retry.");
+  }
+  const data = readToml(filePath);
+  const store = data.mcp_servers || {};
+  outputList(filePath, Object.keys(store));
+}
+
+function listGooseConfig(filePath) {
+  if (!yaml) {
+    fail("YAML dependency not available. Install dependencies and retry.");
+  }
+  const data = readYaml(filePath);
+  const store = data.extensions || {};
+  outputList(filePath, Object.keys(store));
+}
+
+function listClaudeConfig(filePath, allProjects, projectPath) {
+  const data = readJson(filePath);
+  const isDesktopConfig =
+    filePath.endsWith(".claude.json") || filePath.endsWith("claude_desktop_config.json");
+  if (isDesktopConfig) {
+    const projects = Object.keys(data.projects || {});
+    if (allProjects) {
+      if (!projects.length) {
+        outputList(filePath, [], "no-projects");
+        return;
+      }
+      for (const key of projects.sort()) {
+        const projectNode = data.projects?.[key];
+        const store = projectNode?.mcpServers || {};
+        outputList(filePath, Object.keys(store), key);
+      }
+      return;
+    }
+    const projectKey = resolveProjectSelector(data, projectPath);
+    const projectNode = data.projects?.[projectKey];
+    const store = projectNode?.mcpServers || {};
+    outputList(filePath, Object.keys(store), projectKey);
+    return;
+  }
+  const store = data.mcpServers || {};
+  outputList(filePath, Object.keys(store));
+}
+
+function claudeLocalHasServer(filePath, serverName) {
+  const data = readJson(filePath);
+  const store = data.mcpServers || {};
+  return Boolean(store[serverName]);
+}
+
+function whereJsonConfig(filePath, clientType, serverName) {
+  const data = readJson(filePath);
+  let store;
+  if (clientType === "opencode") {
+    store = data.mcp || {};
+  } else if (clientType === "copilot") {
+    store = data.servers || {};
+  } else {
+    store = data.mcpServers || {};
+  }
+  outputWhere(filePath, serverName, Boolean(store[serverName]));
+}
+
+function whereCodexConfig(filePath, serverName) {
+  if (!toml) {
+    fail("TOML dependency not available. Install dependencies and retry.");
+  }
+  const data = readToml(filePath);
+  const store = data.mcp_servers || {};
+  outputWhere(filePath, serverName, Boolean(store[serverName]));
+}
+
+function whereGooseConfig(filePath, serverName) {
+  if (!yaml) {
+    fail("YAML dependency not available. Install dependencies and retry.");
+  }
+  const data = readYaml(filePath);
+  const store = data.extensions || {};
+  outputWhere(filePath, serverName, Boolean(store[serverName]));
+}
+
+function whereClaudeConfig(filePath, serverName, allProjects, projectPath) {
+  const data = readJson(filePath);
+  const isDesktopConfig =
+    filePath.endsWith(".claude.json") || filePath.endsWith("claude_desktop_config.json");
+  if (isDesktopConfig) {
+    const projects = Object.keys(data.projects || {});
+    if (allProjects) {
+      if (!projects.length) {
+        outputWhere(filePath, serverName, false, "no-projects");
+        return;
+      }
+      let found = false;
+      for (const key of projects.sort()) {
+        const projectNode = data.projects?.[key];
+        const store = projectNode?.mcpServers || {};
+        if (store[serverName]) {
+          outputWhere(filePath, serverName, true, key);
+          found = true;
+        }
+      }
+      if (!found) {
+        outputWhere(filePath, serverName, false, "all-projects");
+      }
+      return;
+    }
+    const projectKey = resolveProjectSelector(data, projectPath);
+    const projectNode = data.projects?.[projectKey];
+    const store = projectNode?.mcpServers || {};
+    outputWhere(filePath, serverName, Boolean(store[serverName]), projectKey);
+    return;
+  }
+  const store = data.mcpServers || {};
+  outputWhere(filePath, serverName, Boolean(store[serverName]));
+}
+
 function readJson(filePath) {
   if (!fs.existsSync(filePath)) {
     return {};
@@ -708,6 +1109,24 @@ function readToml(filePath) {
   }
 }
 
+function outputList(filePath, keys, projectKey) {
+  const header = projectKey ? `# ${filePath} (${projectKey})` : `# ${filePath}`;
+  process.stdout.write(`${header}\n`);
+  if (!keys.length) {
+    process.stdout.write("- (none)\n");
+    return;
+  }
+  for (const name of keys.sort()) {
+    process.stdout.write(`- ${name}\n`);
+  }
+}
+
+function outputWhere(filePath, serverName, found, projectKey) {
+  const header = projectKey ? `# ${filePath} (${projectKey})` : `# ${filePath}`;
+  process.stdout.write(`${header}\n`);
+  process.stdout.write(`- ${serverName}: ${found ? "found" : "not found"}\n`);
+}
+
 function ensureDir(filePath) {
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) {
@@ -729,30 +1148,140 @@ function fail(message) {
   process.exit(1);
 }
 
-function printHelp() {
-  process.stdout.write(`mcp-conf
+function printHelp(command) {
+  const header = "mcp-conf";
+  if (!command) {
+    process.stdout.write(`${header}
 
 Usage:
-  mcp-conf --client <name> --name <serverName> [--env <path> | --mcp <dest>] [options]
+  mcp-conf <add|rm|ls|enable|disable|where> --client <name> [options]
+  mcp-conf help <command>
+
+Commands:
+  add       add or update an MCP server entry
+  rm        remove an MCP server entry
+  ls        list MCP server entries
+  enable    enable an existing entry
+  disable   disable an existing entry
+  where     show where a server name is defined
+
+Run:
+  mcp-conf <command> --help
+  mcp-conf help <command>
+
+Notes:
+  Scope defaults to --global (Copilot uses --local only).
+  For Claude, --local maps to the project scope file ./.mcp.json.
+`);
+    return;
+  }
+  switch (command) {
+    case "add":
+      process.stdout.write(`${header} add
+
+Usage:
+  mcp-conf add --client <name> --name <serverName> [--env <path> | --mcp <dest>] [options]
 
 Options:
   --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot (repeatable)
   --name <serverName>   required MCP server name key
-  --env <path>          .env path (add/update only)
-  --mcp <dest>          destination name (add/update only)
+  --env <path>          .env path (stdio only)
+  --mcp <dest>          destination name (stdio only)
   --transport <type>    stdio | sse | http (http => streamableHttp)
   --command <bin>       command to run (default: mcp-abap-adt)
+  --global              write to global user config (default)
+  --local               write to project config (where supported)
+  --project <path>      Claude global: target a specific project path
   --url <http(s)://...> required for sse/http
   --header key=value    add request header (repeatable)
   --timeout <seconds>   entry timeout (default: 60)
-  --disable             disable entry (Codex/OpenCode/Cline/Windsurf/Goose/Claude; not Cursor/Copilot)
-  --enable              enable entry (Codex/OpenCode/Cline/Windsurf/Goose/Claude; not Cursor/Copilot)
-  --remove              remove entry
-  --force               overwrite existing entry (add/update)
+  --force               overwrite existing entry
   --dry-run             print changes without writing files
-  -h, --help            show this help
-
-Notes:
-  New entries for Cline/Codex/Windsurf/Goose/Claude/OpenCode are added disabled by default.
 `);
+      break;
+    case "rm":
+      process.stdout.write(`${header} rm
+
+Usage:
+  mcp-conf rm --client <name> --name <serverName> [options]
+
+Options:
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot (repeatable)
+  --name <serverName>   required MCP server name key
+  --global              write to global user config (default)
+  --local               write to project config (where supported)
+  --all-projects        Claude global: remove across all projects
+  --project <path>      Claude global: target a specific project path
+  --dry-run             print changes without writing files
+`);
+      break;
+    case "ls":
+      process.stdout.write(`${header} ls
+
+Usage:
+  mcp-conf ls --client <name> [options]
+
+Options:
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot (repeatable)
+  --global              write to global user config (default)
+  --local               write to project config (where supported)
+  --all-projects        Claude global: list across all projects
+  --project <path>      Claude global: target a specific project path
+`);
+      break;
+    case "enable":
+      process.stdout.write(`${header} enable
+
+Usage:
+  mcp-conf enable --client <name> --name <serverName> [options]
+
+Options:
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot (repeatable)
+  --name <serverName>   required MCP server name key
+  --global              write to global user config (default)
+  --local               write to project config (where supported)
+  --all-projects        Claude global: enable across all projects
+  --project <path>      Claude global: target a specific project path
+  --dry-run             print changes without writing files
+`);
+      break;
+    case "disable":
+      process.stdout.write(`${header} disable
+
+Usage:
+  mcp-conf disable --client <name> --name <serverName> [options]
+
+Options:
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot (repeatable)
+  --name <serverName>   required MCP server name key
+  --global              write to global user config (default)
+  --local               write to project config (where supported)
+  --all-projects        Claude global: disable across all projects
+  --project <path>      Claude global: target a specific project path
+  --dry-run             print changes without writing files
+`);
+      break;
+    case "where":
+      process.stdout.write(`${header} where
+
+Usage:
+  mcp-conf where --client <name> --name <serverName> [options]
+
+Options:
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot (repeatable)
+  --name <serverName>   required MCP server name key
+  --global              write to global user config (default)
+  --local               write to project config (where supported)
+  --all-projects        Claude global: search across all projects
+  --project <path>      Claude global: target a specific project path
+`);
+      break;
+    default:
+      process.stdout.write(`${header}
+
+Unknown command "${command}".
+Run:
+  mcp-conf help
+`);
+  }
 }
