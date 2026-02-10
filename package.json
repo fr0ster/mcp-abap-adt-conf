@@ -17,6 +17,11 @@
     "README.md",
     "LICENSE"
   ],
+  "scripts": {
+    "lint": "biome check .",
+    "format": "biome format . --write",
+    "build": "npm run lint"
+  },
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
@@ -24,5 +29,8 @@
   "dependencies": {
     "@iarna/toml": "^2.2.5",
     "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.14"
   }
 }

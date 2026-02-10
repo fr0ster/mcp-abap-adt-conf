@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
+const fs = require("node:fs");
+const path = require("node:path");
+const os = require("node:os");
 
 let yaml;
 try {
@@ -100,8 +100,7 @@ if (!options.name) {
   fail("Provide --name <serverName> (required).");
 }
 
-const transportNormalized =
-  options.transport === "http" ? "streamableHttp" : options.transport;
+const transportNormalized = options.transport === "http" ? "streamableHttp" : options.transport;
 options.transport = transportNormalized;
 
 const requiresConnectionParams = !options.remove && !options.toggle;
@@ -139,12 +138,7 @@ const serverArgs = serverArgsRaw.filter(Boolean);
 for (const client of options.clients) {
   switch (client) {
     case "cline":
-      writeJsonConfig(
-        getClinePath(platform, home, appData),
-        options.name,
-        serverArgs,
-        "cline"
-      );
+      writeJsonConfig(getClinePath(platform, home, appData), options.name, serverArgs, "cline");
       break;
     case "codex":
       if (options.transport === "sse") {
@@ -153,18 +147,10 @@ for (const client of options.clients) {
       writeCodexConfig(getCodexPath(platform, home, userProfile), options.name, serverArgs);
       break;
     case "claude":
-      writeClaudeConfig(
-        getClaudePath(platform, home, appData),
-        options.name,
-        serverArgs
-      );
+      writeClaudeConfig(getClaudePath(platform, home, appData), options.name, serverArgs);
       break;
     case "goose":
-      writeGooseConfig(
-        getGoosePath(platform, home, appData),
-        options.name,
-        serverArgs
-      );
+      writeGooseConfig(getGoosePath(platform, home, appData), options.name, serverArgs);
       break;
     case "opencode":
       writeJsonConfig(getOpenCodePath(), options.name, serverArgs, "opencode");
@@ -177,7 +163,7 @@ for (const client of options.clients) {
         getCursorPath(platform, home, userProfile),
         options.name,
         serverArgs,
-        "cursor"
+        "cursor",
       );
       break;
     case "windsurf":
@@ -185,7 +171,7 @@ for (const client of options.clients) {
         getWindsurfPath(platform, home, userProfile),
         options.name,
         serverArgs,
-        "windsurf"
+        "windsurf",
       );
       break;
     default:
@@ -202,7 +188,7 @@ function getClinePath(platformValue, homeDir, appDataDir) {
       "globalStorage",
       "saoudrizwan.claude-dev",
       "settings",
-      "cline_mcp_settings.json"
+      "cline_mcp_settings.json",
     );
   }
   return path.join(
@@ -213,7 +199,7 @@ function getClinePath(platformValue, homeDir, appDataDir) {
     "globalStorage",
     "saoudrizwan.claude-dev",
     "settings",
-    "cline_mcp_settings.json"
+    "cline_mcp_settings.json",
   );
 }
 
@@ -231,7 +217,7 @@ function getClaudePath(platformValue, homeDir, appDataDir) {
       "Library",
       "Application Support",
       "Claude",
-      "claude_desktop_config.json"
+      "claude_desktop_config.json",
     );
   }
   if (platformValue === "win32") {
@@ -285,7 +271,7 @@ function writeJsonConfig(filePath, serverName, argsArray, clientType) {
   if (options.toggle) {
     if (clientType === "cursor" || clientType === "copilot") {
       fail(
-        `${clientType === "cursor" ? "Cursor" : "GitHub Copilot"} enable/disable is not implemented yet.`
+        `${clientType === "cursor" ? "Cursor" : "GitHub Copilot"} enable/disable is not implemented yet.`,
       );
     }
     const store =
@@ -301,9 +287,9 @@ function writeJsonConfig(filePath, serverName, argsArray, clientType) {
       ...store[serverName],
     };
     if (clientType === "opencode") {
-      store[serverName].enabled = options.disabled ? false : true;
+      store[serverName].enabled = !options.disabled;
     } else {
-      store[serverName].disabled = options.disabled ? true : false;
+      store[serverName].disabled = !!options.disabled;
     }
     writeFile(filePath, JSON.stringify(data, null, 2));
     return;
@@ -329,9 +315,7 @@ function writeJsonConfig(filePath, serverName, argsArray, clientType) {
         ? data.servers
         : data.mcpServers;
   if (store[serverName] && !options.force) {
-    fail(
-      `Server "${serverName}" already exists in ${filePath}. Use --force to overwrite.`
-    );
+    fail(`Server "${serverName}" already exists in ${filePath}. Use --force to overwrite.`);
   }
   if (clientType === "opencode") {
     const enabled = options.disabled ? false : !getDefaultDisabled("opencode");
@@ -378,8 +362,7 @@ function writeJsonConfig(filePath, serverName, argsArray, clientType) {
       args: argsArray,
       timeout: options.timeout,
     };
-    data.mcpServers[serverName].disabled =
-      options.disabled || getDefaultDisabled(clientType) ? true : false;
+    data.mcpServers[serverName].disabled = !!(options.disabled || getDefaultDisabled(clientType));
   } else {
     const entry = {
       type: options.transport,
@@ -390,7 +373,7 @@ function writeJsonConfig(filePath, serverName, argsArray, clientType) {
       entry.headers = options.headers;
     }
     const defaultDisabled = getDefaultDisabled(clientType);
-    entry.disabled = options.disabled || defaultDisabled ? true : false;
+    entry.disabled = !!(options.disabled || defaultDisabled);
     data.mcpServers[serverName] = entry;
   }
   writeFile(filePath, JSON.stringify(data, null, 2));
@@ -400,8 +383,7 @@ function writeClaudeConfig(filePath, serverName, argsArray) {
   ensureDir(filePath);
   const data = readJson(filePath);
   const isDesktopConfig =
-    filePath.endsWith(".claude.json") ||
-    filePath.endsWith("claude_desktop_config.json");
+    filePath.endsWith(".claude.json") || filePath.endsWith("claude_desktop_config.json");
   const projectPath = process.cwd();
   const resolveProjectKey = () => {
     const desired = projectPath;
@@ -502,12 +484,10 @@ function writeClaudeConfig(filePath, serverName, argsArray) {
         disabledMcpServers: [],
       };
     }
-    data.projects[projectKey].enabledMcpServers =
-      data.projects[projectKey].enabledMcpServers || [];
+    data.projects[projectKey].enabledMcpServers = data.projects[projectKey].enabledMcpServers || [];
     data.projects[projectKey].disabledMcpServers =
       data.projects[projectKey].disabledMcpServers || [];
-    data.projects[projectKey].mcpServers =
-      data.projects[projectKey].mcpServers || {};
+    data.projects[projectKey].mcpServers = data.projects[projectKey].mcpServers || {};
     if (options.toggle) {
       if (!data.projects[projectKey].mcpServers[serverName]) {
         fail(`Server "${serverName}" not found for ${projectKey}.`);
@@ -517,9 +497,7 @@ function writeClaudeConfig(filePath, serverName, argsArray) {
       return;
     }
     if (data.projects[projectKey].mcpServers[serverName] && !options.force) {
-      fail(
-        `Server "${serverName}" already exists for ${projectKey}. Use --force to overwrite.`
-      );
+      fail(`Server "${serverName}" already exists for ${projectKey}. Use --force to overwrite.`);
     }
     if (options.transport === "stdio") {
       data.projects[projectKey].mcpServers[serverName] = {
@@ -544,9 +522,7 @@ function writeClaudeConfig(filePath, serverName, argsArray) {
   } else {
     data.mcpServers = data.mcpServers || {};
     if (data.mcpServers[serverName] && !options.force) {
-      fail(
-        `Server "${serverName}" already exists in ${filePath}. Use --force to overwrite.`
-      );
+      fail(`Server "${serverName}" already exists in ${filePath}. Use --force to overwrite.`);
     }
     if (options.transport === "stdio") {
       data.mcpServers[serverName] = {
@@ -601,9 +577,7 @@ function writeCodexConfig(filePath, serverName, argsArray) {
   }
 
   if (data.mcp_servers[serverName] && !options.force) {
-    fail(
-      `Server "${serverName}" already exists in ${filePath}. Use --force to overwrite.`
-    );
+    fail(`Server "${serverName}" already exists in ${filePath}. Use --force to overwrite.`);
   }
 
   if (options.transport === "stdio") {
@@ -655,9 +629,7 @@ function writeGooseConfig(filePath, serverName, argsArray) {
     return;
   }
   if (data.extensions[serverName] && !options.force) {
-    fail(
-      `Server "${serverName}" already exists in ${filePath}. Use --force to overwrite.`
-    );
+    fail(`Server "${serverName}" already exists in ${filePath}. Use --force to overwrite.`);
   }
   const enabled = false;
   if (options.transport === "stdio") {
