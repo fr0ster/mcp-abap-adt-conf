@@ -1,11 +1,21 @@
 # Changelog
 
+## [0.0.4] - 2026-02-10
+### Added
+- Antigravity client support with global config path and commands.
+
+### Changed
+- Antigravity HTTP entries use `serverUrl`, and enable/disable uses `disabled: true|false`.
+- Antigravity local scope reports as unsupported.
+- Documentation updates for Antigravity behavior and examples.
+
 ## [0.0.3] - 2026-02-10
 ### Added
 - Command-based CLI interface: `add`, `rm`, `ls`, `enable`, `disable`, `where`.
 - `--global`/`--local` scopes with per-client validation and updated config paths.
 - Claude `--all-projects` and `--project` targeting for global config operations.
 - `AGENTS.md` contributor guidelines.
+- Antigravity client support (add/rm/ls/where).
 
 ### Changed
 - Claude HTTP transport writes `type: "http"` for both global and project configs.

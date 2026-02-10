@@ -299,6 +299,25 @@ const serverArgs = serverArgsRaw.filter(Boolean);
         );
       }
       break;
+    case "antigravity":
+      requireScope("Antigravity", ["global", "local"], scope);
+      if (scope === "local") {
+        process.stdout.write("Antigravity local scope is not supported yet.\n");
+        break;
+      }
+      if (options.list) {
+        listJsonConfig(getAntigravityPath(home, scope), "antigravity");
+      } else if (options.where) {
+        whereJsonConfig(getAntigravityPath(home, scope), "antigravity", options.name);
+      } else {
+        writeJsonConfig(
+          getAntigravityPath(home, scope),
+          options.name,
+          serverArgs,
+          "antigravity",
+        );
+      }
+      break;
     case "copilot":
       requireScope("GitHub Copilot", ["local"], scope);
       if (options.list) {
@@ -423,6 +442,13 @@ function getOpenCodePath(platformValue, homeDir, appDataDir, scopeValue) {
   return path.join(homeDir, ".config", "opencode", "opencode.json");
 }
 
+function getAntigravityPath(homeDir, scopeValue) {
+  if (scopeValue === "local") {
+    return path.join(process.cwd(), ".antigravity", "mcp.json");
+  }
+  return path.join(homeDir, ".gemini", "antigravity", "mcp_config.json");
+}
+
 function getWindsurfPath(platformValue, homeDir, userProfileDir) {
   if (platformValue === "win32") {
     return path.join(userProfileDir, ".codeium", "windsurf", "mcp_config.json");
@@ -483,6 +509,8 @@ function writeJsonConfig(filePath, serverName, argsArray, clientType) {
   const data = readJson(filePath);
   if (clientType === "opencode") {
     data.mcp = data.mcp || {};
+  } else if (clientType === "antigravity") {
+    data.mcpServers = data.mcpServers || {};
   } else if (clientType === "copilot") {
     data.servers = data.servers || {};
     data.inputs = data.inputs || [];
@@ -509,6 +537,8 @@ function writeJsonConfig(filePath, serverName, argsArray, clientType) {
     };
     if (clientType === "opencode") {
       store[serverName].enabled = !options.disabled;
+    } else if (clientType === "antigravity") {
+      store[serverName].disabled = !!options.disabled;
     } else {
       store[serverName].disabled = !!options.disabled;
     }
@@ -568,6 +598,29 @@ function writeJsonConfig(filePath, serverName, argsArray, clientType) {
       const entry = {
         type: options.transport === "streamableHttp" ? "http" : options.transport,
         url: options.url,
+      };
+      if (Object.keys(options.headers).length > 0) {
+        entry.headers = options.headers;
+      }
+      store[serverName] = entry;
+    }
+    writeFile(filePath, JSON.stringify(data, null, 2));
+    return;
+  }
+  if (clientType === "antigravity") {
+    if (options.transport === "stdio") {
+      store[serverName] = {
+        command: options.command,
+        args: argsArray,
+        timeout: options.timeout,
+        disabled: !!options.disabled,
+      };
+    } else {
+      const entry = {
+        type: "http",
+        serverUrl: options.url,
+        timeout: options.timeout,
+        disabled: !!options.disabled,
       };
       if (Object.keys(options.headers).length > 0) {
         entry.headers = options.headers;
@@ -938,6 +991,8 @@ function listJsonConfig(filePath, clientType) {
   let store;
   if (clientType === "opencode") {
     store = data.mcp || {};
+  } else if (clientType === "antigravity") {
+    store = data.mcpServers || {};
   } else if (clientType === "copilot") {
     store = data.servers || {};
   } else {
@@ -1003,6 +1058,8 @@ function whereJsonConfig(filePath, clientType, serverName) {
   let store;
   if (clientType === "opencode") {
     store = data.mcp || {};
+  } else if (clientType === "antigravity") {
+    store = data.mcpServers || {};
   } else if (clientType === "copilot") {
     store = data.servers || {};
   } else {
@@ -1183,7 +1240,7 @@ Usage:
   mcp-conf add --client <name> --name <serverName> [--env <path> | --mcp <dest>] [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot | antigravity (repeatable)
   --name <serverName>   required MCP server name key
   --env <path>          .env path (stdio only)
   --mcp <dest>          destination name (stdio only)
@@ -1197,6 +1254,9 @@ Options:
   --timeout <seconds>   entry timeout (default: 60)
   --force               overwrite existing entry
   --dry-run             print changes without writing files
+
+Notes:
+  Antigravity local scope is not supported yet; use --global.
 `);
       break;
     case "rm":
@@ -1206,13 +1266,16 @@ Usage:
   mcp-conf rm --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot | antigravity (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
   --all-projects        Claude global: remove across all projects
   --project <path>      Claude global: target a specific project path
   --dry-run             print changes without writing files
+
+Notes:
+  Antigravity local scope is not supported yet; use --global.
 `);
       break;
     case "ls":
@@ -1222,11 +1285,14 @@ Usage:
   mcp-conf ls --client <name> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot | antigravity (repeatable)
   --global              write to global user config (default)
   --local               write to project config (where supported)
   --all-projects        Claude global: list across all projects
   --project <path>      Claude global: target a specific project path
+
+Notes:
+  Antigravity local scope is not supported yet; use --global.
 `);
       break;
     case "enable":
@@ -1236,13 +1302,16 @@ Usage:
   mcp-conf enable --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot | antigravity (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
   --all-projects        Claude global: enable across all projects
   --project <path>      Claude global: target a specific project path
   --dry-run             print changes without writing files
+
+Notes:
+  Antigravity local scope is not supported yet; use --global.
 `);
       break;
     case "disable":
@@ -1252,13 +1321,16 @@ Usage:
   mcp-conf disable --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot | antigravity (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
   --all-projects        Claude global: disable across all projects
   --project <path>      Claude global: target a specific project path
   --dry-run             print changes without writing files
+
+Notes:
+  Antigravity local scope is not supported yet; use --global.
 `);
       break;
     case "where":
@@ -1268,12 +1340,15 @@ Usage:
   mcp-conf where --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot | antigravity (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
   --all-projects        Claude global: search across all projects
   --project <path>      Claude global: target a specific project path
+
+Notes:
+  Antigravity local scope is not supported yet; use --global.
 `);
       break;
     default:
