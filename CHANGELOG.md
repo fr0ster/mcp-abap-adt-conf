@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.0.7] - 2026-02-12
+### Added
+- TUI now selects server name from existing configured servers for `rm`, `enable`, and `disable`.
+
+### Changed
+- Updated Biome schema to `2.3.15` to match the installed CLI version.
+- TUI docs clarified for operation flow and server-selection behavior.
+
 ## [0.0.6] - 2026-02-12
 ### Added
 - Interactive `tui` command implemented with `enquirer` (operation/client/scope wizard with keyboard navigation).

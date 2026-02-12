@@ -2,6 +2,8 @@
 
 const { Select, Input, Confirm } = require("enquirer");
 const fs = require("node:fs");
+const path = require("node:path");
+const { spawnSync } = require("node:child_process");
 
 const CLIENTS = [
   { name: "cline", message: "Cline" },
@@ -42,7 +44,13 @@ async function main() {
   const scopes = getSupportedScopes(client);
   result.scope = scopes.length === 1 ? scopes[0] : await askSelect("Scope", ["global", "local"]);
 
-  if (result.tuiAction !== "ls") {
+  if (["rm", "enable", "disable"].includes(result.tuiAction)) {
+    const serverNames = listExistingServers(client, result.scope);
+    if (serverNames.length === 0) {
+      throw new Error(`No existing MCP servers found for ${client} (${result.scope})`);
+    }
+    result.name = await askSelect("Server name", serverNames);
+  } else if (result.tuiAction !== "ls") {
     result.name = await askInput("Server name", "abap");
   } else {
     result.name = null;
@@ -172,6 +180,31 @@ function getSupportedTransports(clientName) {
     return ["stdio", "http"];
   }
   return ["stdio", "sse", "http"];
+}
+
+function listExistingServers(clientName, scope) {
+  const cliPath = path.join(__dirname, "mcp-conf.js");
+  const scopeArg = scope === "local" ? "--local" : "--global";
+  const run = spawnSync(process.execPath, [cliPath, "ls", "--client", clientName, scopeArg], {
+    encoding: "utf8",
+  });
+  if (run.status !== 0) {
+    const stderr = String(run.stderr || "").trim();
+    throw new Error(stderr || "Failed to list existing servers for selected client/scope");
+  }
+  const stdout = String(run.stdout || "");
+  const names = [];
+  for (const line of stdout.split(/\r?\n/u)) {
+    if (!line.startsWith("- ")) {
+      continue;
+    }
+    const name = line.slice(2).trim();
+    if (!name || name === "(none)") {
+      continue;
+    }
+    names.push(name);
+  }
+  return [...new Set(names)].sort((a, b) => a.localeCompare(b));
 }
 
 main().catch((error) => {

@@ -82,6 +82,7 @@ mcp-conf tui
 - Flow order: `operation` -> `client` -> `scope`.
 - Scope step is skipped automatically for single-scope clients.
 - For `add` with `sse/http`, the wizard asks URL, timeout, and repeatable headers.
+- For `rm`/`enable`/`disable`, the wizard shows existing server names for selection.
 - Controls: arrow keys + Enter, Ctrl+C to cancel.
 
 Options:
