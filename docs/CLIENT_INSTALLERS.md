@@ -24,6 +24,8 @@ mcp-conf add --client opencode --name abap --transport http --url http://localho
 mcp-conf add --client kilo --name abap --transport http --url http://localhost:3000/mcp/stream/http
 mcp-conf add --client copilot --name abap --transport http --url http://localhost:3000/mcp/stream/http --header x-mcp-destination=trial
 mcp-conf add --client antigravity --name abap --transport http --url http://localhost:3000/mcp/stream/http
+mcp-conf add --client crush --name abap --mcp TRIAL
+mcp-conf add --client crush --name abap --transport http --url http://localhost:3000/mcp/stream/http
 mcp-conf tui
 ```
 
@@ -49,6 +51,7 @@ Enable MCP:
 mcp-conf enable --client codex --name abap
 mcp-conf enable --client cline --name abap
 mcp-conf enable --client antigravity --name abap
+mcp-conf enable --client crush --name abap
 ```
 
 Remove MCP:
@@ -57,6 +60,7 @@ mcp-conf rm --client codex --name abap
 mcp-conf rm --client cline --name abap
 mcp-conf rm --client claude --name abap
 mcp-conf rm --client antigravity --name abap
+mcp-conf rm --client crush --name abap
 ```
 
 List MCP servers:
@@ -66,6 +70,8 @@ mcp-conf ls --client cline
 mcp-conf ls --client claude --local
 mcp-conf ls --client claude --all-projects
 mcp-conf ls --client antigravity --global
+mcp-conf ls --client crush
+mcp-conf ls --client crush --local
 ```
 
 Find where a server is defined:
@@ -87,7 +93,7 @@ mcp-conf tui
 
 Options:
 - Commands: `add`, `rm`, `ls`, `enable`, `disable`, `where`, `show`, `update`, `tui` (first argument)
-- `--client <name>` (repeatable): `cline`, `codex`, `claude`, `goose`, `cursor`, `windsurf`, `opencode` (`kilo` alias), `copilot`, `antigravity`
+- `--client <name>` (repeatable): `cline`, `codex`, `claude`, `goose`, `cursor`, `windsurf`, `opencode` (`kilo` alias), `copilot`, `antigravity`, `crush`
 - `--env`: use shell/session environment variables (stdio only)
 - `--env-path <path>`: use a specific `.env` file (stdio only)
 - `--mcp <destination>`: use service key destination
@@ -95,7 +101,7 @@ Options:
 - `--transport <type>`: `stdio`, `sse`, or `http` (`http` maps to `streamableHttp`)
 - `--command <bin>`: command to run (default: `mcp-abap-adt`)
 - `--global`: write to the global user config (default)
-- `--local`: write to the project config (supported by `cursor`, `opencode`/`kilo`, `copilot`, `claude`, `codex`)
+- `--local`: write to the project config (supported by `cursor`, `opencode`/`kilo`, `copilot`, `claude`, `codex`, `crush`)
 - `--all-projects`: for Claude (global scope), apply `rm/enable/disable/ls/where` across all projects
 - `--project <path>`: for Claude (global scope), target a specific project path
 - `--url <http(s)://...>`: required for `sse` and `http`
@@ -113,7 +119,7 @@ Notes:
 - Claude stores enable/disable state under `enabledMcpServers` and `disabledMcpServers` for each project.
 - Claude enable/disable always updates `~/.claude.json` (global scope), even if you pass `--local`.
 - Antigravity HTTP entries use `serverUrl` instead of `url`.
-- New entries for Cline, Codex, Windsurf, Goose, Claude, and OpenCode are added **disabled by default**. Use `enable` to turn them on.
+- New entries for Cline, Codex, Windsurf, Goose, Claude, OpenCode, and Crush are added **disabled by default**. Use `enable` to turn them on.
 - Windsurf follows `disabled` like Cline. The configurator sets `disabled = true` for default-disabled entries.
 - `enable`/`disable` only work if the server entry already exists. Use add commands with `--env`, `--env-path`, or `--mcp` first.
 - Non-stdio transports are supported for Cline/Cursor/Windsurf/Claude/Goose. Codex supports `http` (streamable HTTP) but not `sse`.
@@ -156,6 +162,9 @@ Global (default) locations:
 - **Antigravity**:
   - Linux/macOS: `~/.gemini/antigravity/mcp_config.json`
   - Note: path is community-reported; verify against latest vendor docs.
+- **Crush**:
+  - Linux/macOS: `~/.config/crush/crush.json`
+  - Windows: `%USERPROFILE%\AppData\Local\crush\crush.json`
 
 Local (project) locations:
 - **Claude Code**:
@@ -168,3 +177,5 @@ Local (project) locations:
   - Project: `./.vscode/mcp.json` (uses `servers.<name>` entries)
 - **Antigravity**:
   - Project: `./.antigravity/mcp.json` (community-reported; not supported yet)
+- **Crush**:
+  - Project: `./.crush.json` (uses `mcp.<name>` entries with `disabled: true|false`)

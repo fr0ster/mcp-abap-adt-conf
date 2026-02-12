@@ -15,6 +15,7 @@ const CLIENTS = [
   { name: "opencode", message: "OpenCode (kilo)" },
   { name: "copilot", message: "GitHub Copilot" },
   { name: "antigravity", message: "Antigravity" },
+  { name: "crush", message: "Crush" },
 ];
 
 const HEADER_KEYS = [

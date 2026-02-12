@@ -441,6 +441,23 @@ for (const client of options.clients) {
         );
       }
       break;
+    case "crush":
+      requireScope("Crush", ["global", "local"], scope);
+      if (options.list) {
+        listJsonConfig(getCrushPath(platform, home, userProfile, scope), "crush");
+      } else if (options.show) {
+        showJsonConfig(getCrushPath(platform, home, userProfile, scope), "crush", options.name);
+      } else if (options.where) {
+        whereJsonConfig(getCrushPath(platform, home, userProfile, scope), "crush", options.name);
+      } else {
+        writeJsonConfig(
+          getCrushPath(platform, home, userProfile, scope),
+          options.name,
+          serverArgs,
+          "crush",
+        );
+      }
+      break;
     default:
       fail(`Unknown client: ${client}`);
   }
@@ -580,6 +597,16 @@ function getWindsurfPath(platformValue, homeDir, userProfileDir) {
   return path.join(homeDir, ".codeium", "windsurf", "mcp_config.json");
 }
 
+function getCrushPath(platformValue, homeDir, userProfileDir, scopeValue) {
+  if (scopeValue === "local") {
+    return path.join(process.cwd(), ".crush.json");
+  }
+  if (platformValue === "win32") {
+    return path.join(userProfileDir, "AppData", "Local", "crush", "crush.json");
+  }
+  return path.join(homeDir, ".config", "crush", "crush.json");
+}
+
 function requireScope(clientLabel, allowedScopes, requestedScope) {
   if (!allowedScopes.includes(requestedScope)) {
     fail(
@@ -625,13 +652,15 @@ function resolveProjectSelector(data, projectPath) {
 }
 
 function getDefaultDisabled(clientType) {
-  return ["cline", "codex", "windsurf", "goose", "claude", "opencode"].includes(clientType);
+  return ["cline", "codex", "windsurf", "goose", "claude", "opencode", "crush"].includes(
+    clientType,
+  );
 }
 
 function writeJsonConfig(filePath, serverName, argsArray, clientType) {
   ensureDir(filePath);
   const data = readJson(filePath);
-  if (clientType === "opencode") {
+  if (clientType === "opencode" || clientType === "crush") {
     data.mcp = data.mcp || {};
   } else if (clientType === "antigravity") {
     data.mcpServers = data.mcpServers || {};
@@ -648,7 +677,7 @@ function writeJsonConfig(filePath, serverName, argsArray, clientType) {
       );
     }
     const store =
-      clientType === "opencode"
+      clientType === "opencode" || clientType === "crush"
         ? data.mcp
         : clientType === "copilot"
           ? data.servers
@@ -671,7 +700,7 @@ function writeJsonConfig(filePath, serverName, argsArray, clientType) {
   }
   if (options.remove) {
     const store =
-      clientType === "opencode"
+      clientType === "opencode" || clientType === "crush"
         ? data.mcp
         : clientType === "copilot"
           ? data.servers
@@ -684,7 +713,7 @@ function writeJsonConfig(filePath, serverName, argsArray, clientType) {
     return;
   }
   const store =
-    clientType === "opencode"
+    clientType === "opencode" || clientType === "crush"
       ? data.mcp
       : clientType === "copilot"
         ? data.servers
@@ -722,6 +751,30 @@ function writeJsonConfig(filePath, serverName, argsArray, clientType) {
       const entry = {
         type: options.transport === "streamableHttp" ? "http" : options.transport,
         url: options.url,
+      };
+      if (Object.keys(options.headers).length > 0) {
+        entry.headers = options.headers;
+      }
+      store[serverName] = entry;
+    }
+    writeFile(filePath, JSON.stringify(data, null, 2));
+    return;
+  }
+  if (clientType === "crush") {
+    if (options.transport === "stdio") {
+      store[serverName] = {
+        type: "stdio",
+        command: options.command,
+        args: argsArray,
+        timeout: options.timeout,
+        disabled: !!(options.disabled || getDefaultDisabled("crush")),
+      };
+    } else {
+      const entry = {
+        type: options.transport === "streamableHttp" ? "http" : options.transport,
+        url: options.url,
+        timeout: options.timeout,
+        disabled: !!(options.disabled || getDefaultDisabled("crush")),
       };
       if (Object.keys(options.headers).length > 0) {
         entry.headers = options.headers;
@@ -1113,7 +1166,7 @@ function writeGooseConfig(filePath, serverName, argsArray) {
 function listJsonConfig(filePath, clientType) {
   const data = readJson(filePath);
   let store;
-  if (clientType === "opencode") {
+  if (clientType === "opencode" || clientType === "crush") {
     store = data.mcp || {};
   } else if (clientType === "antigravity") {
     store = data.mcpServers || {};
@@ -1180,7 +1233,7 @@ function claudeLocalHasServer(filePath, serverName) {
 function whereJsonConfig(filePath, clientType, serverName) {
   const data = readJson(filePath);
   let store;
-  if (clientType === "opencode") {
+  if (clientType === "opencode" || clientType === "crush") {
     store = data.mcp || {};
   } else if (clientType === "antigravity") {
     store = data.mcpServers || {};
@@ -1248,7 +1301,7 @@ function whereClaudeConfig(filePath, serverName, allProjects, projectPath) {
 function showJsonConfig(filePath, clientType, serverName) {
   const data = readJson(filePath);
   let store;
-  if (clientType === "opencode") {
+  if (clientType === "opencode" || clientType === "crush") {
     store = data.mcp || {};
   } else if (clientType === "antigravity") {
     store = data.mcpServers || {};
@@ -1439,6 +1492,11 @@ function inferTransport(clientType, entry, parsedArgs) {
   if (clientType === "antigravity") {
     return entry?.type === "http" ? "http" : "stdio";
   }
+  if (clientType === "crush") {
+    if (entry?.type === "http") return "http";
+    if (entry?.type === "sse") return "sse";
+    return "stdio";
+  }
   if (entry?.type === "streamableHttp" || entry?.type === "http") {
     return "http";
   }
@@ -1619,7 +1677,7 @@ Usage:
   mcp-conf add --client <name> --name <serverName> [--env | --env-path <path> | --mcp <dest>] [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | crush (repeatable)
   --name <serverName>   required MCP server name key
   --env                 use current shell/session env vars (stdio only)
   --env-path <path>     .env path (stdio only)
@@ -1646,7 +1704,7 @@ Usage:
   mcp-conf rm --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -1665,7 +1723,7 @@ Usage:
   mcp-conf ls --client <name> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | crush (repeatable)
   --global              write to global user config (default)
   --local               write to project config (where supported)
   --all-projects        Claude global: list across all projects
@@ -1682,7 +1740,7 @@ Usage:
   mcp-conf enable --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -1701,7 +1759,7 @@ Usage:
   mcp-conf disable --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -1720,7 +1778,7 @@ Usage:
   mcp-conf where --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -1738,7 +1796,7 @@ Usage:
   mcp-conf show --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              read from global user config (default)
   --local               read from project config (where supported)
@@ -1757,7 +1815,7 @@ Usage:
   mcp-conf update --client <name> --name <serverName> [--env | --env-path <path> | --mcp <dest>] [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | crush (repeatable)
   --name <serverName>   required MCP server name key
   --env                 use current shell/session env vars (stdio only)
   --env-path <path>     .env path (stdio only)
