@@ -320,37 +320,33 @@ for (const client of options.clients) {
         fail("--project is only supported for Claude global config.");
       }
       if (options.toggle && scope === "local") {
-        const localPath = getClaudePath(platform, home, appData, "local");
+        const localPath = getClaudePath(home, "local");
         if (!claudeLocalHasServer(localPath, options.name)) {
           fail(`Server "${options.name}" not found in ${localPath}.`);
         }
       }
       if (options.list) {
         listClaudeConfig(
-          getClaudePath(platform, home, appData, claudeToggleScope),
+          getClaudePath(home, claudeToggleScope),
           options.allProjects,
           options.projectPath,
         );
       } else if (options.show) {
         showClaudeConfig(
-          getClaudePath(platform, home, appData, claudeToggleScope),
+          getClaudePath(home, claudeToggleScope),
           options.name,
           options.allProjects,
           options.projectPath,
         );
       } else if (options.where) {
         whereClaudeConfig(
-          getClaudePath(platform, home, appData, claudeToggleScope),
+          getClaudePath(home, claudeToggleScope),
           options.name,
           options.allProjects,
           options.projectPath,
         );
       } else {
-        writeClaudeConfig(
-          getClaudePath(platform, home, appData, claudeToggleScope),
-          options.name,
-          serverArgs,
-        );
+        writeClaudeConfig(getClaudePath(home, claudeToggleScope), options.name, serverArgs);
       }
       break;
     }
@@ -534,21 +530,9 @@ function getCodexPath(platformValue, homeDir, userProfileDir, scopeValue) {
   return path.join(homeDir, ".codex", "config.toml");
 }
 
-function getClaudePath(platformValue, homeDir, appDataDir, scopeValue) {
+function getClaudePath(homeDir, scopeValue) {
   if (scopeValue === "local") {
     return path.join(process.cwd(), ".mcp.json");
-  }
-  if (platformValue === "darwin") {
-    return path.join(
-      homeDir,
-      "Library",
-      "Application Support",
-      "Claude",
-      "claude_desktop_config.json",
-    );
-  }
-  if (platformValue === "win32") {
-    return path.join(appDataDir, "Claude", "claude_desktop_config.json");
   }
   return path.join(homeDir, ".claude.json");
 }

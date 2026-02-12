@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.0.10] - 2026-02-12
+### Fixed
+- Claude global path now resolves to `~/.claude.json` on macOS (for example `/Users/<username>/.claude.json`) instead of Claude Desktop config location.
+
+### Changed
+- Claude config location docs now explicitly list Linux/macOS `~/.claude.json` and Windows `%USERPROFILE%\\.claude.json`.
+
 ## [0.0.9] - 2026-02-12
 ### Fixed
 - Cline macOS global config path now resolves to `~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json` instead of the Linux path.

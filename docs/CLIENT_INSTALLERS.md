@@ -138,10 +138,8 @@ Global (default) locations:
   - Windows: `%USERPROFILE%\.codex\config.toml`
   - Local (project): `./.codex/config.toml`
 - **Claude Code (CLI)**:
-  - Linux default: `~/.claude.json` (per-project entries under `projects.<cwd>.mcpServers`)
-- **Claude Desktop**:
-  - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-  - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+  - Linux/macOS: `~/.claude.json` (per-project entries under `projects.<cwd>.mcpServers`)
+  - Windows: `%USERPROFILE%\.claude.json`
 - **Goose**:
   - Linux/macOS: `~/.config/goose/config.yaml`
   - Windows: `%APPDATA%\Block\goose\config\config.yaml`
