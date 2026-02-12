@@ -499,6 +499,19 @@ function getClinePath(platformValue, homeDir, appDataDir) {
       "cline_mcp_settings.json",
     );
   }
+  if (platformValue === "darwin") {
+    return path.join(
+      homeDir,
+      "Library",
+      "Application Support",
+      "Code",
+      "User",
+      "globalStorage",
+      "saoudrizwan.claude-dev",
+      "settings",
+      "cline_mcp_settings.json",
+    );
+  }
   return path.join(
     homeDir,
     ".config",

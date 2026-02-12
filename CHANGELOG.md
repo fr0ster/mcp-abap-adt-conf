@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.0.9] - 2026-02-12
+### Fixed
+- Cline macOS global config path now resolves to `~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json` instead of the Linux path.
+
+### Changed
+- Config location docs now list separate Linux and macOS paths for Cline.
+
 ## [0.0.8] - 2026-02-12
 ### Added
 - New commands: `show` (inspect server config) and `update` (modify existing server config).
