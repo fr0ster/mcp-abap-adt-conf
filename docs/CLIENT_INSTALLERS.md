@@ -149,11 +149,13 @@ Global (default) locations:
 - **Windsurf**:
   - Linux/macOS: `~/.codeium/windsurf/mcp_config.json`
   - Windows: `%USERPROFILE%\.codeium\windsurf\mcp_config.json`
+  - Note: some Windsurf docs/examples also mention legacy `~/.codeium/mcp_config.json`.
 - **OpenCode**:
   - Linux/macOS: `~/.config/opencode/opencode.json`
   - Windows: `%APPDATA%\opencode\opencode.json`
 - **Antigravity**:
   - Linux/macOS: `~/.gemini/antigravity/mcp_config.json`
+  - Note: path is community-reported; verify against latest vendor docs.
 
 Local (project) locations:
 - **Claude Code**:
