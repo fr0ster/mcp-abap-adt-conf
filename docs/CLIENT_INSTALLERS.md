@@ -75,6 +75,15 @@ mcp-conf where --client claude --name goose --project /path/to/project
 mcp-conf where --client claude --name goose --all-projects
 ```
 
+TUI wizard:
+```bash
+mcp-conf tui
+```
+- Flow order: `operation` -> `client` -> `scope`.
+- Scope step is skipped automatically for single-scope clients.
+- For `add` with `sse/http`, the wizard asks URL, timeout, and repeatable headers.
+- Controls: arrow keys + Enter, Ctrl+C to cancel.
+
 Options:
 - Commands: `add`, `rm`, `ls`, `enable`, `disable`, `where`, `tui` (first argument)
 - `--client <name>` (repeatable): `cline`, `codex`, `claude`, `goose`, `cursor`, `windsurf`, `opencode` (`kilo` alias), `copilot`, `antigravity`

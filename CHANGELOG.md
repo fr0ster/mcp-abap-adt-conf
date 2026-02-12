@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [0.0.6] - 2026-02-12
+### Added
+- Interactive `tui` command implemented with `enquirer` (operation/client/scope wizard with keyboard navigation).
+- HTTP/SSE TUI flow now supports timeout input and repeatable header selection from a predefined list.
+- `kilo` client alias for `opencode`.
+
+### Changed
+- For stdio auth, `--env` now means session environment variables; file-based env moved to `--env-path`.
+- TUI operation menu order now starts with `ls`.
+- TUI automatically skips scope selection when the selected client supports only one scope.
+
+### Fixed
+- TUI stdin handling no longer fails on transient non-blocking read conditions (`EAGAIN`/`EINTR`).
+
 ## [0.0.5] - 2026-02-12
 ### Added
 - Codex `--local` scope support (writes to `./.codex/config.toml`).

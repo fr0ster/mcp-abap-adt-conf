@@ -23,6 +23,13 @@ mcp-conf --client copilot --name abap --transport http --url http://localhost:30
 mcp-conf tui
 ```
 
+## TUI
+
+`mcp-conf tui` starts an interactive wizard.
+- Step order: `operation` -> `client` -> `scope` (auto-skipped if only one scope is supported).
+- For `add` + `sse/http`: prompts for URL, timeout, and repeatable headers.
+- Keyboard: arrow keys + Enter, Ctrl+C to cancel.
+
 ## Docs
 
 - See `docs/CLIENT_INSTALLERS.md` for client-specific behavior, defaults, and config paths.

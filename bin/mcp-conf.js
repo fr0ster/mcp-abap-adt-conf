@@ -3,6 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
+const { spawnSync } = require("node:child_process");
 
 let yaml;
 try {
@@ -406,222 +407,29 @@ function runTuiWizard(opts) {
   if (!process.stdin.isTTY) {
     fail("TUI mode requires an interactive terminal.");
   }
-  process.stdout.write("mcp-conf tui\n");
-  process.stdout.write("Interactive MCP setup wizard\n\n");
-  process.stdout.write("Type q to exit at any step.\n\n");
-
-  opts.tuiAction = promptChoice("Select operation:", [
-    { label: "add", value: "add" },
-    { label: "ls", value: "ls" },
-    { label: "rm", value: "rm" },
-    { label: "enable", value: "enable" },
-    { label: "disable", value: "disable" },
-  ]);
-
-  const clientChoice = promptChoice("Select client:", [
-    { label: "cline", value: "cline" },
-    { label: "codex", value: "codex" },
-    { label: "claude", value: "claude" },
-    { label: "goose", value: "goose" },
-    { label: "cursor", value: "cursor" },
-    { label: "windsurf", value: "windsurf" },
-    { label: "opencode (kilo)", value: "opencode" },
-    { label: "copilot", value: "copilot" },
-    { label: "antigravity", value: "antigravity" },
-  ]);
-  opts.clients = [clientChoice];
-
-  const allowedScopes = getSupportedScopes(clientChoice);
-  opts.scope =
-    allowedScopes.length === 1
-      ? allowedScopes[0]
-      : promptChoice("Select scope:", [
-          { label: "global", value: "global" },
-          { label: "local", value: "local" },
-        ]);
-  if (!allowedScopes.includes(opts.scope)) {
-    opts.scope = promptChoice(
-      `${clientChoice} supports ${allowedScopes.join("/")} scope. Select supported scope:`,
-      allowedScopes.map((scopeName) => ({ label: scopeName, value: scopeName })),
-    );
+  const helperPath = path.join(__dirname, "mcp-conf-tui.js");
+  const run = spawnSync(process.execPath, [helperPath], {
+    stdio: ["inherit", "inherit", "inherit", "pipe"],
+    encoding: "utf8",
+  });
+  if (run.error) {
+    fail(`Failed to start TUI helper: ${run.error.message}`);
   }
-
-  if (opts.tuiAction !== "ls") {
-    opts.name = promptLine("Server name [abap]: ", "abap");
-  } else {
-    opts.name = null;
+  if (run.status !== 0) {
+    process.exit(run.status || 1);
   }
-  opts.headers = {};
-
-  if (opts.tuiAction !== "add") {
-    return;
+  const rawPayload = run.output?.[3] || "";
+  const payload = String(rawPayload).trim();
+  if (!payload) {
+    fail("TUI did not return configuration.");
   }
-
-  const transports = getSupportedTransports(clientChoice);
-  opts.transport =
-    transports.length > 1
-      ? promptChoice(
-          "Select transport:",
-          transports.map((transportName) => ({ label: transportName, value: transportName })),
-        )
-      : transports[0];
-
-  if (opts.transport === "stdio") {
-    const authSource = promptChoice("Auth source for stdio:", [
-      { label: "service key destination (--mcp)", value: "mcp" },
-      { label: "session environment (--env)", value: "session" },
-      { label: "specific env file (--env-path)", value: "env" },
-    ]);
-    if (authSource === "mcp") {
-      opts.mcpDestination = promptLine("Destination name (e.g. TRIAL): ");
-      opts.envPath = null;
-      opts.useSessionEnv = false;
-    } else if (authSource === "env") {
-      opts.envPath = promptLine("Path to .env file: ");
-      opts.mcpDestination = null;
-      opts.useSessionEnv = false;
-    } else {
-      opts.useSessionEnv = true;
-      opts.envPath = null;
-      opts.mcpDestination = null;
-    }
-    opts.url = null;
-  } else {
-    opts.url = promptLine("Server URL (http/https): ");
-    opts.timeout = promptNumber("Timeout seconds [60]: ", 60);
-    opts.headers = promptHeaders();
-    opts.envPath = null;
-    opts.mcpDestination = null;
-    opts.useSessionEnv = false;
+  let selected;
+  try {
+    selected = JSON.parse(payload);
+  } catch {
+    fail("Invalid TUI output.");
   }
-}
-
-function getSupportedScopes(clientName) {
-  if (clientName === "copilot") {
-    return ["local"];
-  }
-  if (["cline", "goose", "windsurf", "antigravity"].includes(clientName)) {
-    return ["global"];
-  }
-  return ["global", "local"];
-}
-
-function getSupportedTransports(clientName) {
-  if (clientName === "codex") {
-    return ["stdio", "http"];
-  }
-  return ["stdio", "sse", "http"];
-}
-
-function promptHeaders() {
-  const headers = {};
-  const headerChoices = [
-    { label: "x-mcp-destination", value: "x-mcp-destination" },
-    { label: "x-sap-url", value: "x-sap-url" },
-    { label: "x-sap-client", value: "x-sap-client" },
-    { label: "x-sap-auth-type", value: "x-sap-auth-type" },
-    { label: "x-sap-jwt-token", value: "x-sap-jwt-token" },
-    { label: "x-sap-user", value: "x-sap-user" },
-    { label: "x-sap-password", value: "x-sap-password" },
-    { label: "Done", value: null },
-  ];
-
-  while (true) {
-    const key = promptChoice("Select header to add:", headerChoices);
-    if (!key) {
-      return headers;
-    }
-    const value = promptLine(`Value for ${key}: `);
-    headers[key] = value;
-
-    const addMore = promptChoice("Add another header?", [
-      { label: "yes", value: true },
-      { label: "no", value: false },
-    ]);
-    if (!addMore) {
-      return headers;
-    }
-  }
-}
-
-function promptNumber(question, defaultValue) {
-  while (true) {
-    const raw = promptLine(question, String(defaultValue));
-    const parsed = Number(raw);
-    if (Number.isFinite(parsed) && parsed > 0) {
-      return parsed;
-    }
-    process.stdout.write("Please provide a positive number.\n");
-  }
-}
-
-function promptChoice(label, entries) {
-  process.stdout.write(`${label}\n`);
-  for (let i = 0; i < entries.length; i += 1) {
-    process.stdout.write(`  ${i + 1}. ${entries[i].label}\n`);
-  }
-  while (true) {
-    const answer = promptLine("Choose number: ");
-    if (isExitAnswer(answer)) {
-      exitTui();
-    }
-    const idx = Number.parseInt(answer, 10);
-    if (Number.isInteger(idx) && idx >= 1 && idx <= entries.length) {
-      process.stdout.write("\n");
-      return entries[idx - 1].value;
-    }
-    process.stdout.write("Invalid choice. Try again.\n");
-  }
-}
-
-function promptLine(question, defaultValue) {
-  process.stdout.write(question);
-  const buffer = Buffer.alloc(1024);
-  let chunk = "";
-  while (true) {
-    let bytesRead;
-    try {
-      bytesRead = fs.readSync(0, buffer, 0, buffer.length, null);
-    } catch (error) {
-      if (error && (error.code === "EAGAIN" || error.code === "EINTR")) {
-        sleepMs(10);
-        continue;
-      }
-      throw error;
-    }
-    if (bytesRead <= 0) {
-      break;
-    }
-    chunk += buffer.toString("utf8", 0, bytesRead);
-    if (chunk.includes("\n")) {
-      break;
-    }
-  }
-  const firstLine = chunk.split(/\r?\n/u)[0].trim();
-  if (isExitAnswer(firstLine)) {
-    exitTui();
-  }
-  if (!firstLine && defaultValue !== undefined) {
-    return defaultValue;
-  }
-  if (!firstLine) {
-    process.stdout.write("Value is required.\n");
-    return promptLine(question, defaultValue);
-  }
-  return firstLine;
-}
-
-function sleepMs(ms) {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
-}
-
-function isExitAnswer(value) {
-  return ["q", "quit", "exit"].includes((value || "").toLowerCase());
-}
-
-function exitTui() {
-  process.stdout.write("\nTUI cancelled.\n");
-  process.exit(0);
+  Object.assign(opts, selected);
 }
 
 function getClinePath(platformValue, homeDir, appDataDir) {
@@ -1486,7 +1294,7 @@ Commands:
   enable    enable an existing entry
   disable   disable an existing entry
   where     show where a server name is defined
-  tui       interactive setup wizard for add
+  tui       interactive setup wizard
 
 Run:
   mcp-conf <command> --help
@@ -1626,9 +1434,9 @@ Usage:
   mcp-conf tui
 
 Description:
-  Start interactive setup wizard for add command.
-  Wizard asks for client, scope, transport, auth source/URL,
-  and for sse/http also timeout and headers.
+  Start interactive setup wizard for add/ls/rm/enable/disable.
+  Flow: operation -> client -> scope (skips scope when only one is supported).
+  For add + sse/http, wizard also asks timeout and repeatable headers.
 `);
       break;
     default:
