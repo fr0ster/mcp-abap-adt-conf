@@ -82,7 +82,7 @@ Options:
 - `--transport <type>`: `stdio`, `sse`, or `http` (`http` maps to `streamableHttp`)
 - `--command <bin>`: command to run (default: `mcp-abap-adt`)
 - `--global`: write to the global user config (default)
-- `--local`: write to the project config (supported by `cursor`, `opencode`, `copilot`, `claude`)
+- `--local`: write to the project config (supported by `cursor`, `opencode`, `copilot`, `claude`, `codex`)
 - `--all-projects`: for Claude (global scope), apply `rm/enable/disable/ls/where` across all projects
 - `--project <path>`: for Claude (global scope), target a specific project path
 - `--url <http(s)://...>`: required for `sse` and `http`
@@ -102,7 +102,7 @@ Notes:
 - Windsurf follows `disabled` like Cline. The configurator sets `disabled = true` for default-disabled entries.
 - `enable`/`disable` only work if the server entry already exists. Use add commands with `--env` or `--mcp` first.
 - Non-stdio transports are supported for Cline/Cursor/Windsurf/Claude/Goose. Codex supports `http` (streamable HTTP) but not `sse`.
-- Codex writes custom headers under `http_headers` in `~/.codex/config.toml`.
+- Codex writes custom headers under `http_headers` in `~/.codex/config.toml` (or `./.codex/config.toml` for `--local`).
 - Codex HTTP entries include `startup_timeout_sec` (default: 60).
 - `--dry-run`: print changes without writing files
 - `--force`: overwrite existing server entry if it exists
@@ -120,6 +120,7 @@ Global (default) locations:
 - **Codex**:
   - Linux/macOS: `~/.codex/config.toml`
   - Windows: `%USERPROFILE%\.codex\config.toml`
+  - Local (project): `./.codex/config.toml`
 - **Claude Code (CLI)**:
   - Linux default: `~/.claude.json` (per-project entries under `projects.<cwd>.mcpServers`)
 - **Claude Desktop**:

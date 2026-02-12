@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+## [0.0.5] - 2026-02-12
+### Added
+- Codex `--local` scope support (writes to `./.codex/config.toml`).
+
+### Changed
+- Docs updated to list Codex local scope and path.
+
 ## [0.0.4] - 2026-02-10
 ### Added
 - Antigravity client support with global config path and commands.

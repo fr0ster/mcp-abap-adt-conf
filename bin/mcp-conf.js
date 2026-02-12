@@ -229,13 +229,13 @@ const serverArgs = serverArgsRaw.filter(Boolean);
       if (options.transport === "sse") {
         fail("Codex does not support SSE transport.");
       }
-      requireScope("Codex", ["global"], scope);
+      requireScope("Codex", ["global", "local"], scope);
       if (options.list) {
-        listCodexConfig(getCodexPath(platform, home, userProfile));
+        listCodexConfig(getCodexPath(platform, home, userProfile, scope));
       } else if (options.where) {
-        whereCodexConfig(getCodexPath(platform, home, userProfile), options.name);
+        whereCodexConfig(getCodexPath(platform, home, userProfile, scope), options.name);
       } else {
-        writeCodexConfig(getCodexPath(platform, home, userProfile), options.name, serverArgs);
+        writeCodexConfig(getCodexPath(platform, home, userProfile, scope), options.name, serverArgs);
       }
       break;
     case "claude":
@@ -387,7 +387,10 @@ function getClinePath(platformValue, homeDir, appDataDir) {
   );
 }
 
-function getCodexPath(platformValue, homeDir, userProfileDir) {
+function getCodexPath(platformValue, homeDir, userProfileDir, scopeValue) {
+  if (scopeValue === "local") {
+    return path.join(process.cwd(), ".codex", "config.toml");
+  }
   if (platformValue === "win32") {
     return path.join(userProfileDir, ".codex", "config.toml");
   }
@@ -1229,6 +1232,7 @@ Run:
 Notes:
   Scope defaults to --global (Copilot uses --local only).
   For Claude, --local maps to the project scope file ./.mcp.json.
+  For Codex, --local writes to ./.codex/config.toml.
 `);
     return;
   }
