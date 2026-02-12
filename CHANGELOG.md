@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.0.8] - 2026-02-12
+### Added
+- New commands: `show` (inspect server config) and `update` (modify existing server config).
+- TUI operations now include `show` and `update`.
+- TUI for `rm`/`enable`/`disable`/`show`/`update` now selects server name from existing entries.
+
+### Changed
+- TUI `update` now performs transport-aware step-by-step editing:
+  - `stdio`: updates startup auth source (`--mcp`, `--env`, `--env-path`)
+  - `sse/http`: updates URL, timeout, and headers
+- `show` output is now compact and focused (removed noisy/raw fields).
+- Help and docs updated for `show`/`update` and extended TUI flow.
+
 ## [0.0.7] - 2026-02-12
 ### Added
 - TUI now selects server name from existing configured servers for `rm`, `enable`, and `disable`.

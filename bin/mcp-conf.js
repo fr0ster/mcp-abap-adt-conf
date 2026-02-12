@@ -24,7 +24,12 @@ try {
 
 const args = process.argv.slice(2);
 const action = args[0] && !args[0].startsWith("-") ? args[0] : null;
-if (action && ["add", "rm", "ls", "enable", "disable", "where", "tui", "help"].includes(action)) {
+if (
+  action &&
+  ["add", "rm", "ls", "enable", "disable", "where", "show", "update", "tui", "help"].includes(
+    action,
+  )
+) {
   args.shift();
 }
 const options = {
@@ -45,6 +50,8 @@ const options = {
   allProjects: false,
   projectPath: null,
   where: false,
+  show: false,
+  outputJson: false,
   url: null,
   headers: {},
   timeout: 60,
@@ -54,7 +61,10 @@ if (args.includes("--help") || args.includes("-h") || action === "help") {
   const helpAction =
     action === "help"
       ? args[0]
-      : action && ["add", "rm", "ls", "enable", "disable", "where", "tui"].includes(action)
+      : action &&
+          ["add", "rm", "ls", "enable", "disable", "where", "show", "update", "tui"].includes(
+            action,
+          )
         ? action
         : null;
   printHelp(helpAction);
@@ -142,11 +152,16 @@ for (let i = 0; i < args.length; i += 1) {
     options.dryRun = true;
   } else if (arg === "--force") {
     options.force = true;
+  } else if (arg === "--json") {
+    options.outputJson = true;
   }
 }
 
-if (!action || !["add", "rm", "ls", "enable", "disable", "where", "tui"].includes(action)) {
-  fail("Provide a command: add | rm | ls | enable | disable | where | tui.");
+if (
+  !action ||
+  !["add", "rm", "ls", "enable", "disable", "where", "show", "update", "tui"].includes(action)
+) {
+  fail("Provide a command: add | rm | ls | enable | disable | where | show | update | tui.");
 }
 
 let effectiveAction = action;
@@ -183,6 +198,12 @@ if (effectiveAction === "disable") {
 if (effectiveAction === "where") {
   options.where = true;
 }
+if (effectiveAction === "show") {
+  options.show = true;
+}
+if (effectiveAction === "update") {
+  options.force = true;
+}
 
 if (options.remove && effectiveAction !== "rm") {
   fail("Use the rm command instead of --remove.");
@@ -193,21 +214,32 @@ if (options.list && options.toggle) {
 if (options.remove && options.toggle) {
   fail("The rm command does not support --enable/--disable.");
 }
-if (options.allProjects && !options.list && !options.toggle && !options.remove && !options.where) {
-  fail("--all-projects is only supported for rm/enable/disable/ls/where.");
+if (
+  options.allProjects &&
+  !options.list &&
+  !options.toggle &&
+  !options.remove &&
+  !options.where &&
+  !options.show
+) {
+  fail("--all-projects is only supported for rm/enable/disable/ls/where/show.");
 }
 if (options.projectPath && options.allProjects) {
   fail("Use either --project or --all-projects (not both).");
 }
-if (options.where && (options.list || options.remove || options.toggle)) {
-  fail("The where command does not support ls/rm/enable/disable flags.");
+if (options.where && (options.list || options.remove || options.toggle || options.show)) {
+  fail("The where command does not support ls/rm/enable/disable/show flags.");
 }
-if (options.projectPath && effectiveAction === "add" && options.scope !== "global") {
+if (
+  options.projectPath &&
+  ["add", "update"].includes(effectiveAction) &&
+  options.scope !== "global"
+) {
   fail("--project is only supported for Claude global config.");
 }
 
 const requiresConnectionParams =
-  !options.remove && !options.toggle && !options.list && !options.where;
+  !options.remove && !options.toggle && !options.list && !options.where && !options.show;
 
 if (requiresConnectionParams && options.transport === "stdio") {
   if (!options.envPath && !options.mcpDestination && !options.useSessionEnv) {
@@ -251,6 +283,8 @@ for (const client of options.clients) {
       requireScope("Cline", ["global"], scope);
       if (options.list) {
         listJsonConfig(getClinePath(platform, home, appData), "cline");
+      } else if (options.show) {
+        showJsonConfig(getClinePath(platform, home, appData), "cline", options.name);
       } else if (options.where) {
         whereJsonConfig(getClinePath(platform, home, appData), "cline", options.name);
       } else {
@@ -264,6 +298,8 @@ for (const client of options.clients) {
       requireScope("Codex", ["global", "local"], scope);
       if (options.list) {
         listCodexConfig(getCodexPath(platform, home, userProfile, scope));
+      } else if (options.show) {
+        showCodexConfig(getCodexPath(platform, home, userProfile, scope), options.name);
       } else if (options.where) {
         whereCodexConfig(getCodexPath(platform, home, userProfile, scope), options.name);
       } else {
@@ -295,6 +331,13 @@ for (const client of options.clients) {
           options.allProjects,
           options.projectPath,
         );
+      } else if (options.show) {
+        showClaudeConfig(
+          getClaudePath(platform, home, appData, claudeToggleScope),
+          options.name,
+          options.allProjects,
+          options.projectPath,
+        );
       } else if (options.where) {
         whereClaudeConfig(
           getClaudePath(platform, home, appData, claudeToggleScope),
@@ -315,6 +358,8 @@ for (const client of options.clients) {
       requireScope("Goose", ["global"], scope);
       if (options.list) {
         listGooseConfig(getGoosePath(platform, home, appData));
+      } else if (options.show) {
+        showGooseConfig(getGoosePath(platform, home, appData), options.name);
       } else if (options.where) {
         whereGooseConfig(getGoosePath(platform, home, appData), options.name);
       } else {
@@ -325,6 +370,8 @@ for (const client of options.clients) {
       requireScope("OpenCode", ["global", "local"], scope);
       if (options.list) {
         listJsonConfig(getOpenCodePath(platform, home, appData, scope), "opencode");
+      } else if (options.show) {
+        showJsonConfig(getOpenCodePath(platform, home, appData, scope), "opencode", options.name);
       } else if (options.where) {
         whereJsonConfig(getOpenCodePath(platform, home, appData, scope), "opencode", options.name);
       } else {
@@ -344,6 +391,8 @@ for (const client of options.clients) {
       }
       if (options.list) {
         listJsonConfig(getAntigravityPath(home, scope), "antigravity");
+      } else if (options.show) {
+        showJsonConfig(getAntigravityPath(home, scope), "antigravity", options.name);
       } else if (options.where) {
         whereJsonConfig(getAntigravityPath(home, scope), "antigravity", options.name);
       } else {
@@ -354,6 +403,8 @@ for (const client of options.clients) {
       requireScope("GitHub Copilot", ["local"], scope);
       if (options.list) {
         listJsonConfig(getCopilotPath(), "copilot");
+      } else if (options.show) {
+        showJsonConfig(getCopilotPath(), "copilot", options.name);
       } else if (options.where) {
         whereJsonConfig(getCopilotPath(), "copilot", options.name);
       } else {
@@ -364,6 +415,8 @@ for (const client of options.clients) {
       requireScope("Cursor", ["global", "local"], scope);
       if (options.list) {
         listJsonConfig(getCursorPath(platform, home, userProfile, scope), "cursor");
+      } else if (options.show) {
+        showJsonConfig(getCursorPath(platform, home, userProfile, scope), "cursor", options.name);
       } else if (options.where) {
         whereJsonConfig(getCursorPath(platform, home, userProfile, scope), "cursor", options.name);
       } else {
@@ -379,6 +432,8 @@ for (const client of options.clients) {
       requireScope("Windsurf", ["global"], scope);
       if (options.list) {
         listJsonConfig(getWindsurfPath(platform, home, userProfile), "windsurf");
+      } else if (options.show) {
+        showJsonConfig(getWindsurfPath(platform, home, userProfile), "windsurf", options.name);
       } else if (options.where) {
         whereJsonConfig(getWindsurfPath(platform, home, userProfile), "windsurf", options.name);
       } else {
@@ -1193,6 +1248,246 @@ function whereClaudeConfig(filePath, serverName, allProjects, projectPath) {
   outputWhere(filePath, serverName, Boolean(store[serverName]));
 }
 
+function showJsonConfig(filePath, clientType, serverName) {
+  const data = readJson(filePath);
+  let store;
+  if (clientType === "opencode") {
+    store = data.mcp || {};
+  } else if (clientType === "antigravity") {
+    store = data.mcpServers || {};
+  } else if (clientType === "copilot") {
+    store = data.servers || {};
+  } else {
+    store = data.mcpServers || {};
+  }
+  const entry = store[serverName];
+  if (!entry) {
+    fail(`Server "${serverName}" not found in ${filePath}.`);
+  }
+  outputShow(filePath, serverName, normalizeServerDetails(clientType, serverName, entry));
+}
+
+function showCodexConfig(filePath, serverName) {
+  if (!toml) {
+    fail("TOML dependency not available. Install dependencies and retry.");
+  }
+  const data = readToml(filePath);
+  const store = data.mcp_servers || {};
+  const entry = store[serverName];
+  if (!entry) {
+    fail(`Server "${serverName}" not found in ${filePath}.`);
+  }
+  outputShow(filePath, serverName, normalizeServerDetails("codex", serverName, entry));
+}
+
+function showGooseConfig(filePath, serverName) {
+  if (!yaml) {
+    fail("YAML dependency not available. Install dependencies and retry.");
+  }
+  const data = readYaml(filePath);
+  const store = data.extensions || {};
+  const entry = store[serverName];
+  if (!entry) {
+    fail(`Server "${serverName}" not found in ${filePath}.`);
+  }
+  outputShow(filePath, serverName, normalizeServerDetails("goose", serverName, entry));
+}
+
+function showClaudeConfig(filePath, serverName, allProjects, projectPath) {
+  const data = readJson(filePath);
+  const isDesktopConfig =
+    filePath.endsWith(".claude.json") || filePath.endsWith("claude_desktop_config.json");
+  if (isDesktopConfig) {
+    const projects = Object.keys(data.projects || {});
+    if (allProjects) {
+      const results = [];
+      for (const key of projects.sort()) {
+        const projectNode = data.projects?.[key];
+        const store = projectNode?.mcpServers || {};
+        if (store[serverName]) {
+          results.push({
+            project: key,
+            ...normalizeServerDetails("claude", serverName, store[serverName]),
+          });
+        }
+      }
+      if (!results.length) {
+        fail(`Server "${serverName}" not found in any Claude projects.`);
+      }
+      if (options.outputJson) {
+        process.stdout.write(`${JSON.stringify(results, null, 2)}\n`);
+        return;
+      }
+      for (const result of results) {
+        outputShow(filePath, serverName, result, result.project);
+      }
+      return;
+    }
+    const projectKey = resolveProjectSelector(data, projectPath);
+    const store = data.projects?.[projectKey]?.mcpServers || {};
+    const entry = store[serverName];
+    if (!entry) {
+      fail(`Server "${serverName}" not found for ${projectKey}.`);
+    }
+    outputShow(
+      filePath,
+      serverName,
+      normalizeServerDetails("claude", serverName, entry, projectKey),
+      projectKey,
+    );
+    return;
+  }
+  const store = data.mcpServers || {};
+  const entry = store[serverName];
+  if (!entry) {
+    fail(`Server "${serverName}" not found in ${filePath}.`);
+  }
+  outputShow(filePath, serverName, normalizeServerDetails("claude", serverName, entry));
+}
+
+function normalizeServerDetails(clientType, serverName, entry, projectKey) {
+  const args = Array.isArray(entry?.args) ? entry.args : [];
+  const parsedArgs = parseServerArgs(args);
+  const command = entry?.command || entry?.cmd || "mcp-abap-adt";
+  const normalized = {
+    client: clientType,
+    name: serverName,
+    ...(projectKey ? { project: projectKey } : {}),
+    transport: inferTransport(clientType, entry, parsedArgs),
+    command,
+    timeout: inferTimeout(clientType, entry),
+    url: inferUrl(clientType, entry),
+    headers: inferHeaders(clientType, entry),
+    auth: inferAuth(parsedArgs),
+  };
+  return compactServerDetails(normalized);
+}
+
+function compactServerDetails(details) {
+  const compact = {
+    client: details.client,
+    name: details.name,
+    ...(details.project ? { project: details.project } : {}),
+    transport: details.transport,
+  };
+  if (details.command) {
+    compact.command = details.command;
+  }
+  if (Number.isFinite(details.timeout)) {
+    compact.timeout = details.timeout;
+  }
+  if (details.transport === "stdio") {
+    compact.auth = details.auth;
+  } else {
+    if (details.url) {
+      compact.url = details.url;
+    }
+    if (details.headers && Object.keys(details.headers).length > 0) {
+      compact.headers = details.headers;
+    }
+  }
+  return compact;
+}
+
+function parseServerArgs(args) {
+  const parsed = {
+    transport: null,
+    envPath: null,
+    mcpDestination: null,
+    useSessionEnv: false,
+  };
+  for (const arg of args) {
+    if (typeof arg !== "string") {
+      continue;
+    }
+    if (arg.startsWith("--transport=")) {
+      const value = arg.slice("--transport=".length);
+      parsed.transport = value === "streamableHttp" ? "http" : value;
+    } else if (arg === "--env") {
+      parsed.useSessionEnv = true;
+    } else if (arg.startsWith("--env-path=") || arg.startsWith("--env=")) {
+      parsed.envPath = arg.slice(arg.indexOf("=") + 1);
+    } else if (arg.startsWith("--mcp=")) {
+      parsed.mcpDestination = arg.slice("--mcp=".length);
+    }
+  }
+  return parsed;
+}
+
+function inferTransport(clientType, entry, parsedArgs) {
+  if (parsedArgs.transport) {
+    return parsedArgs.transport;
+  }
+  if (clientType === "goose") {
+    if (entry?.type === "streamable_http") {
+      return "http";
+    }
+    if (entry?.type === "sse") {
+      return "sse";
+    }
+    return "stdio";
+  }
+  if (clientType === "opencode") {
+    return entry?.type === "remote" ? "http" : "stdio";
+  }
+  if (clientType === "copilot") {
+    if (entry?.type === "http") {
+      return "http";
+    }
+    if (entry?.type === "sse") {
+      return "sse";
+    }
+    return "stdio";
+  }
+  if (clientType === "antigravity") {
+    return entry?.type === "http" ? "http" : "stdio";
+  }
+  if (entry?.type === "streamableHttp" || entry?.type === "http") {
+    return "http";
+  }
+  if (entry?.type === "sse") {
+    return "sse";
+  }
+  return "stdio";
+}
+
+function inferTimeout(clientType, entry) {
+  if (clientType === "codex") {
+    return entry?.startup_timeout_sec ?? 60;
+  }
+  return entry?.timeout ?? 60;
+}
+
+function inferUrl(clientType, entry) {
+  if (clientType === "goose") {
+    return entry?.uri || null;
+  }
+  if (clientType === "antigravity") {
+    return entry?.serverUrl || null;
+  }
+  return entry?.url || null;
+}
+
+function inferHeaders(clientType, entry) {
+  if (clientType === "codex") {
+    return entry?.http_headers || {};
+  }
+  return entry?.headers || {};
+}
+
+function inferAuth(parsedArgs) {
+  if (parsedArgs.mcpDestination) {
+    return { type: "mcp", value: parsedArgs.mcpDestination };
+  }
+  if (parsedArgs.envPath) {
+    return { type: "env-path", value: parsedArgs.envPath };
+  }
+  if (parsedArgs.useSessionEnv) {
+    return { type: "env", value: null };
+  }
+  return { type: "unknown", value: null };
+}
+
 function readJson(filePath) {
   if (!fs.existsSync(filePath)) {
     return {};
@@ -1256,6 +1551,16 @@ function outputWhere(filePath, serverName, found, projectKey) {
   process.stdout.write(`- ${serverName}: ${found ? "found" : "not found"}\n`);
 }
 
+function outputShow(filePath, serverName, details, projectKey) {
+  if (options.outputJson) {
+    process.stdout.write(`${JSON.stringify(details, null, 2)}\n`);
+    return;
+  }
+  const header = projectKey ? `# ${filePath} (${projectKey})` : `# ${filePath}`;
+  process.stdout.write(`${header}\n`);
+  process.stdout.write(`- ${serverName}: ${JSON.stringify(details, null, 2)}\n`);
+}
+
 function ensureDir(filePath) {
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) {
@@ -1283,7 +1588,7 @@ function printHelp(command) {
     process.stdout.write(`${header}
 
 Usage:
-  mcp-conf <add|rm|ls|enable|disable|where> --client <name> [options]
+  mcp-conf <add|rm|ls|enable|disable|where|show|update> --client <name> [options]
   mcp-conf tui
   mcp-conf help <command>
 
@@ -1294,6 +1599,8 @@ Commands:
   enable    enable an existing entry
   disable   disable an existing entry
   where     show where a server name is defined
+  show      show server configuration details
+  update    update an existing server entry
   tui       interactive setup wizard
 
 Run:
@@ -1427,6 +1734,50 @@ Notes:
   Antigravity local scope is not supported yet; use --global.
 `);
       break;
+    case "show":
+      process.stdout.write(`${header} show
+
+Usage:
+  mcp-conf show --client <name> --name <serverName> [options]
+
+Options:
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity (repeatable)
+  --name <serverName>   required MCP server name key
+  --global              read from global user config (default)
+  --local               read from project config (where supported)
+  --all-projects        Claude global: show from all projects
+  --project <path>      Claude global: target a specific project path
+  --json                output JSON only (machine-readable)
+
+Notes:
+  Antigravity local scope is not supported yet; use --global.
+`);
+      break;
+    case "update":
+      process.stdout.write(`${header} update
+
+Usage:
+  mcp-conf update --client <name> --name <serverName> [--env | --env-path <path> | --mcp <dest>] [options]
+
+Options:
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity (repeatable)
+  --name <serverName>   required MCP server name key
+  --env                 use current shell/session env vars (stdio only)
+  --env-path <path>     .env path (stdio only)
+  --mcp <dest>          destination name (stdio only)
+  --transport <type>    stdio | sse | http (http => streamableHttp)
+  --url <http(s)://...> required for sse/http
+  --header key=value    add request header (repeatable)
+  --timeout <seconds>   entry timeout (default: 60)
+  --global              write to global user config (default)
+  --local               write to project config (where supported)
+  --project <path>      Claude global: target a specific project path
+  --dry-run             print changes without writing files
+
+Notes:
+  Antigravity local scope is not supported yet; use --global.
+`);
+      break;
     case "tui":
       process.stdout.write(`${header} tui
 
@@ -1434,9 +1785,10 @@ Usage:
   mcp-conf tui
 
 Description:
-  Start interactive setup wizard for add/ls/rm/enable/disable.
+  Start interactive setup wizard for ls/add/show/update/rm/enable/disable.
   Flow: operation -> client -> scope (skips scope when only one is supported).
-  For add + sse/http, wizard also asks timeout and repeatable headers.
+  For add/update + sse/http, wizard also asks timeout and repeatable headers.
+  For rm/enable/disable/show/update, wizard selects server from existing entries.
 `);
       break;
     default:
