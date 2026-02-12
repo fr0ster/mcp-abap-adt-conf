@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.0.11] - 2026-02-13
+### Added
+- Charmbracelet Crush MCP client support (`--client crush`).
+- Crush supports global and local scopes, all three transports (stdio/sse/http), and `disabled` toggling.
+- Config paths: `~/.config/crush/crush.json` (Linux/macOS), `%USERPROFILE%\AppData\Local\crush\crush.json` (Windows), `.crush.json` (local).
+- New entries for Crush are added disabled by default.
+
+### Changed
+- Documentation updated with Crush usage examples, config locations, and notes.
+- TUI client list now includes Crush.
+
 ## [0.0.10] - 2026-02-12
 ### Fixed
 - Claude global path now resolves to `~/.claude.json` on macOS (for example `/Users/<username>/.claude.json`) instead of Claude Desktop config location.
