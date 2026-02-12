@@ -11,9 +11,9 @@ npm install -g @mcp-abap-adt/configurator
 ## Usage
 
 ```bash
-mcp-conf add --client cline --env /path/to/.env --name abap
+mcp-conf add --client cline --env-path /path/to/.env --name abap
 mcp-conf add --client cline --mcp TRIAL --name abap
-mcp-conf add --client cline --env /path/to/.env --name abap --transport stdio
+mcp-conf add --client cline --env-path /path/to/.env --name abap --transport stdio
 mcp-conf add --client claude --mcp TRIAL --name abap
 mcp-conf rm --client codex --name abap
 mcp-conf add --client cline --name direct-jwt-test-001 --transport http --url http://localhost:4004/mcp/stream/http --header x-sap-url=https://... --header x-sap-client=210 --header x-sap-auth-type=jwt --header x-sap-jwt-token=...
@@ -21,8 +21,10 @@ mcp-conf add --client cline --name local-mcp-sse --transport sse --url http://lo
 mcp-conf add --client codex --name abap-http --transport http --url http://localhost:3000/mcp/stream/http
 mcp-conf add --client codex --name abap-http --transport http --url http://localhost:3000/mcp/stream/http --header x-mcp-destination=trial
 mcp-conf add --client opencode --name abap --transport http --url http://localhost:3000/mcp/stream/http
+mcp-conf add --client kilo --name abap --transport http --url http://localhost:3000/mcp/stream/http
 mcp-conf add --client copilot --name abap --transport http --url http://localhost:3000/mcp/stream/http --header x-mcp-destination=trial
 mcp-conf add --client antigravity --name abap --transport http --url http://localhost:3000/mcp/stream/http
+mcp-conf tui
 ```
 
 ## Common Tasks
@@ -30,7 +32,7 @@ mcp-conf add --client antigravity --name abap --transport http --url http://loca
 Add MCP:
 ```bash
 mcp-conf add --client codex --mcp TRIAL --name abap
-mcp-conf add --client cline --env /path/to/.env --name abap
+mcp-conf add --client cline --env-path /path/to/.env --name abap
 mcp-conf add --client claude --mcp TRIAL --name abap
 mcp-conf add --client claude --name abap-http --transport http --url http://localhost:3000/mcp/stream/http --header x-mcp-destination=trial
 mcp-conf add --client claude --name abap --project /path/to/project --mcp TRIAL
@@ -74,15 +76,16 @@ mcp-conf where --client claude --name goose --all-projects
 ```
 
 Options:
-- Commands: `add`, `rm`, `ls`, `enable`, `disable`, `where` (first argument)
-- `--client <name>` (repeatable): `cline`, `codex`, `claude`, `goose`, `cursor`, `windsurf`, `opencode`, `copilot`, `antigravity`
-- `--env <path>`: use a specific `.env` file
+- Commands: `add`, `rm`, `ls`, `enable`, `disable`, `where`, `tui` (first argument)
+- `--client <name>` (repeatable): `cline`, `codex`, `claude`, `goose`, `cursor`, `windsurf`, `opencode` (`kilo` alias), `copilot`, `antigravity`
+- `--env`: use shell/session environment variables (stdio only)
+- `--env-path <path>`: use a specific `.env` file (stdio only)
 - `--mcp <destination>`: use service key destination
 - `--name <serverName>`: MCP server name (required)
 - `--transport <type>`: `stdio`, `sse`, or `http` (`http` maps to `streamableHttp`)
 - `--command <bin>`: command to run (default: `mcp-abap-adt`)
 - `--global`: write to the global user config (default)
-- `--local`: write to the project config (supported by `cursor`, `opencode`, `copilot`, `claude`, `codex`)
+- `--local`: write to the project config (supported by `cursor`, `opencode`/`kilo`, `copilot`, `claude`, `codex`)
 - `--all-projects`: for Claude (global scope), apply `rm/enable/disable/ls/where` across all projects
 - `--project <path>`: for Claude (global scope), target a specific project path
 - `--url <http(s)://...>`: required for `sse` and `http`
@@ -90,8 +93,9 @@ Options:
 - `--timeout <seconds>`: timeout value for client entries (default: 60)
 
 Notes:
-- `disable` and `rm` do not require `--env` or `--mcp`.
-- `--env`/`--mcp` are only valid for `stdio` transport. For `sse/http`, use `--url` and optional `--header`.
+- `disable` and `rm` do not require `--env`, `--env-path`, or `--mcp`.
+- `--env`/`--env-path`/`--mcp` are only valid for `stdio` transport. For `sse/http`, use `--url` and optional `--header`.
+- `mcp-conf tui` starts an interactive wizard and writes the same config as `add`.
 - Cursor/Copilot enable/disable are not implemented yet.
 - Antigravity enable/disable uses `disabled: true|false` on the entry.
 - Antigravity local scope is not supported yet; use `--global`.
@@ -100,7 +104,7 @@ Notes:
 - Antigravity HTTP entries use `serverUrl` instead of `url`.
 - New entries for Cline, Codex, Windsurf, Goose, Claude, and OpenCode are added **disabled by default**. Use `enable` to turn them on.
 - Windsurf follows `disabled` like Cline. The configurator sets `disabled = true` for default-disabled entries.
-- `enable`/`disable` only work if the server entry already exists. Use add commands with `--env` or `--mcp` first.
+- `enable`/`disable` only work if the server entry already exists. Use add commands with `--env`, `--env-path`, or `--mcp` first.
 - Non-stdio transports are supported for Cline/Cursor/Windsurf/Claude/Goose. Codex supports `http` (streamable HTTP) but not `sse`.
 - Codex writes custom headers under `http_headers` in `~/.codex/config.toml` (or `./.codex/config.toml` for `--local`).
 - Codex HTTP entries include `startup_timeout_sec` (default: 60).

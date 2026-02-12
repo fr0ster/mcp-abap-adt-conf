@@ -23,12 +23,13 @@ try {
 
 const args = process.argv.slice(2);
 const action = args[0] && !args[0].startsWith("-") ? args[0] : null;
-if (action && ["add", "rm", "ls", "enable", "disable", "where", "help"].includes(action)) {
+if (action && ["add", "rm", "ls", "enable", "disable", "where", "tui", "help"].includes(action)) {
   args.shift();
 }
 const options = {
   clients: [],
   envPath: null,
+  useSessionEnv: false,
   mcpDestination: null,
   name: null,
   transport: "stdio",
@@ -52,7 +53,7 @@ if (args.includes("--help") || args.includes("-h") || action === "help") {
   const helpAction =
     action === "help"
       ? args[0]
-      : action && ["add", "rm", "ls", "enable", "disable", "where"].includes(action)
+      : action && ["add", "rm", "ls", "enable", "disable", "where", "tui"].includes(action)
         ? action
         : null;
   printHelp(helpAction);
@@ -62,13 +63,34 @@ if (args.includes("--help") || args.includes("-h") || action === "help") {
 for (let i = 0; i < args.length; i += 1) {
   const arg = args[i];
   if (arg === "--client") {
-    options.clients.push(args[i + 1]);
+    options.clients.push(normalizeClientName(args[i + 1]));
     i += 1;
   } else if (arg === "--env") {
+    const maybePath = args[i + 1];
+    if (maybePath && !maybePath.startsWith("-")) {
+      // Backward-compatible form: --env /path/to/.env
+      options.envPath = maybePath;
+      options.useSessionEnv = false;
+      options.mcpDestination = null;
+      i += 1;
+    } else {
+      options.useSessionEnv = true;
+      options.envPath = null;
+      options.mcpDestination = null;
+    }
+  } else if (arg === "--env-path") {
     options.envPath = args[i + 1];
+    options.useSessionEnv = false;
+    options.mcpDestination = null;
     i += 1;
+  } else if (arg === "--session-env") {
+    options.useSessionEnv = true;
+    options.envPath = null;
+    options.mcpDestination = null;
   } else if (arg === "--mcp") {
     options.mcpDestination = args[i + 1];
+    options.useSessionEnv = false;
+    options.envPath = null;
     i += 1;
   } else if (arg === "--name") {
     options.name = args[i + 1];
@@ -122,40 +144,46 @@ for (let i = 0; i < args.length; i += 1) {
   }
 }
 
-if (!action || !["add", "rm", "ls", "enable", "disable", "where"].includes(action)) {
-  fail("Provide a command: add | rm | ls | enable | disable | where.");
+if (!action || !["add", "rm", "ls", "enable", "disable", "where", "tui"].includes(action)) {
+  fail("Provide a command: add | rm | ls | enable | disable | where | tui.");
+}
+
+let effectiveAction = action;
+if (action === "tui") {
+  runTuiWizard(options);
+  effectiveAction = options.tuiAction || "add";
 }
 
 if (options.clients.length === 0) {
   fail("Provide at least one --client.");
 }
 
-if (!["ls"].includes(action) && !options.name) {
+if (!["ls"].includes(effectiveAction) && !options.name) {
   fail("Provide --name <serverName> (required).");
 }
 
 const transportNormalized = options.transport === "http" ? "streamableHttp" : options.transport;
 options.transport = transportNormalized;
 
-if (action === "rm") {
+if (effectiveAction === "rm") {
   options.remove = true;
 }
-if (action === "ls") {
+if (effectiveAction === "ls") {
   options.list = true;
 }
-if (action === "enable") {
+if (effectiveAction === "enable") {
   options.toggle = true;
   options.disabled = false;
 }
-if (action === "disable") {
+if (effectiveAction === "disable") {
   options.toggle = true;
   options.disabled = true;
 }
-if (action === "where") {
+if (effectiveAction === "where") {
   options.where = true;
 }
 
-if (options.remove && action !== "rm") {
+if (options.remove && effectiveAction !== "rm") {
   fail("Use the rm command instead of --remove.");
 }
 if (options.list && options.toggle) {
@@ -173,15 +201,16 @@ if (options.projectPath && options.allProjects) {
 if (options.where && (options.list || options.remove || options.toggle)) {
   fail("The where command does not support ls/rm/enable/disable flags.");
 }
-if (options.projectPath && action === "add" && options.scope !== "global") {
+if (options.projectPath && effectiveAction === "add" && options.scope !== "global") {
   fail("--project is only supported for Claude global config.");
 }
 
-const requiresConnectionParams = !options.remove && !options.toggle && !options.list && !options.where;
+const requiresConnectionParams =
+  !options.remove && !options.toggle && !options.list && !options.where;
 
 if (requiresConnectionParams && options.transport === "stdio") {
-  if (!options.envPath && !options.mcpDestination) {
-    fail("Provide either --env <path> or --mcp <destination>.");
+  if (!options.envPath && !options.mcpDestination && !options.useSessionEnv) {
+    fail("Provide --env, --env-path <path>, or --mcp <destination>.");
   }
 }
 
@@ -189,8 +218,8 @@ if (requiresConnectionParams && options.transport !== "stdio") {
   if (!options.url) {
     fail("Provide --url <http(s)://...> for sse/http transports.");
   }
-  if (options.envPath || options.mcpDestination) {
-    fail("--env/--mcp are only valid for stdio transport.");
+  if (options.envPath || options.mcpDestination || options.useSessionEnv) {
+    fail("--env/--env-path/--mcp are only valid for stdio transport.");
   }
 }
 
@@ -201,20 +230,22 @@ const userProfile = process.env.USERPROFILE || home;
 
 const serverArgsRaw = [
   `--transport=${options.transport}`,
-  options.envPath
-    ? `--env=${options.envPath}`
-    : options.mcpDestination
-      ? `--mcp=${options.mcpDestination.toLowerCase()}`
-      : undefined,
+  options.useSessionEnv
+    ? "--env"
+    : options.envPath
+      ? `--env-path=${options.envPath}`
+      : options.mcpDestination
+        ? `--mcp=${options.mcpDestination.toLowerCase()}`
+        : undefined,
 ];
 const serverArgs = serverArgsRaw.filter(Boolean);
 
-  for (const client of options.clients) {
-    const scope = options.scope || getDefaultScope(client);
-    if (options.projectPath && client !== "claude") {
-      fail("--project is only supported for Claude.");
-    }
-    switch (client) {
+for (const client of options.clients) {
+  const scope = options.scope || getDefaultScope(client);
+  if (options.projectPath && client !== "claude") {
+    fail("--project is only supported for Claude.");
+  }
+  switch (client) {
     case "cline":
       requireScope("Cline", ["global"], scope);
       if (options.list) {
@@ -235,10 +266,14 @@ const serverArgs = serverArgsRaw.filter(Boolean);
       } else if (options.where) {
         whereCodexConfig(getCodexPath(platform, home, userProfile, scope), options.name);
       } else {
-        writeCodexConfig(getCodexPath(platform, home, userProfile, scope), options.name, serverArgs);
+        writeCodexConfig(
+          getCodexPath(platform, home, userProfile, scope),
+          options.name,
+          serverArgs,
+        );
       }
       break;
-    case "claude":
+    case "claude": {
       requireScope("Claude", ["global", "local"], scope);
       const claudeToggleScope = options.toggle ? "global" : scope;
       if (options.allProjects && claudeToggleScope !== "global") {
@@ -274,6 +309,7 @@ const serverArgs = serverArgsRaw.filter(Boolean);
         );
       }
       break;
+    }
     case "goose":
       requireScope("Goose", ["global"], scope);
       if (options.list) {
@@ -310,12 +346,7 @@ const serverArgs = serverArgsRaw.filter(Boolean);
       } else if (options.where) {
         whereJsonConfig(getAntigravityPath(home, scope), "antigravity", options.name);
       } else {
-        writeJsonConfig(
-          getAntigravityPath(home, scope),
-          options.name,
-          serverArgs,
-          "antigravity",
-        );
+        writeJsonConfig(getAntigravityPath(home, scope), options.name, serverArgs, "antigravity");
       }
       break;
     case "copilot":
@@ -361,6 +392,236 @@ const serverArgs = serverArgsRaw.filter(Boolean);
     default:
       fail(`Unknown client: ${client}`);
   }
+}
+
+function normalizeClientName(clientName) {
+  if (!clientName) {
+    return clientName;
+  }
+  const normalized = clientName.toLowerCase();
+  return normalized === "kilo" ? "opencode" : normalized;
+}
+
+function runTuiWizard(opts) {
+  if (!process.stdin.isTTY) {
+    fail("TUI mode requires an interactive terminal.");
+  }
+  process.stdout.write("mcp-conf tui\n");
+  process.stdout.write("Interactive MCP setup wizard\n\n");
+  process.stdout.write("Type q to exit at any step.\n\n");
+
+  opts.tuiAction = promptChoice("Select operation:", [
+    { label: "add", value: "add" },
+    { label: "ls", value: "ls" },
+    { label: "rm", value: "rm" },
+    { label: "enable", value: "enable" },
+    { label: "disable", value: "disable" },
+  ]);
+
+  const clientChoice = promptChoice("Select client:", [
+    { label: "cline", value: "cline" },
+    { label: "codex", value: "codex" },
+    { label: "claude", value: "claude" },
+    { label: "goose", value: "goose" },
+    { label: "cursor", value: "cursor" },
+    { label: "windsurf", value: "windsurf" },
+    { label: "opencode (kilo)", value: "opencode" },
+    { label: "copilot", value: "copilot" },
+    { label: "antigravity", value: "antigravity" },
+  ]);
+  opts.clients = [clientChoice];
+
+  const allowedScopes = getSupportedScopes(clientChoice);
+  opts.scope =
+    allowedScopes.length === 1
+      ? allowedScopes[0]
+      : promptChoice("Select scope:", [
+          { label: "global", value: "global" },
+          { label: "local", value: "local" },
+        ]);
+  if (!allowedScopes.includes(opts.scope)) {
+    opts.scope = promptChoice(
+      `${clientChoice} supports ${allowedScopes.join("/")} scope. Select supported scope:`,
+      allowedScopes.map((scopeName) => ({ label: scopeName, value: scopeName })),
+    );
+  }
+
+  if (opts.tuiAction !== "ls") {
+    opts.name = promptLine("Server name [abap]: ", "abap");
+  } else {
+    opts.name = null;
+  }
+  opts.headers = {};
+
+  if (opts.tuiAction !== "add") {
+    return;
+  }
+
+  const transports = getSupportedTransports(clientChoice);
+  opts.transport =
+    transports.length > 1
+      ? promptChoice(
+          "Select transport:",
+          transports.map((transportName) => ({ label: transportName, value: transportName })),
+        )
+      : transports[0];
+
+  if (opts.transport === "stdio") {
+    const authSource = promptChoice("Auth source for stdio:", [
+      { label: "service key destination (--mcp)", value: "mcp" },
+      { label: "session environment (--env)", value: "session" },
+      { label: "specific env file (--env-path)", value: "env" },
+    ]);
+    if (authSource === "mcp") {
+      opts.mcpDestination = promptLine("Destination name (e.g. TRIAL): ");
+      opts.envPath = null;
+      opts.useSessionEnv = false;
+    } else if (authSource === "env") {
+      opts.envPath = promptLine("Path to .env file: ");
+      opts.mcpDestination = null;
+      opts.useSessionEnv = false;
+    } else {
+      opts.useSessionEnv = true;
+      opts.envPath = null;
+      opts.mcpDestination = null;
+    }
+    opts.url = null;
+  } else {
+    opts.url = promptLine("Server URL (http/https): ");
+    opts.timeout = promptNumber("Timeout seconds [60]: ", 60);
+    opts.headers = promptHeaders();
+    opts.envPath = null;
+    opts.mcpDestination = null;
+    opts.useSessionEnv = false;
+  }
+}
+
+function getSupportedScopes(clientName) {
+  if (clientName === "copilot") {
+    return ["local"];
+  }
+  if (["cline", "goose", "windsurf", "antigravity"].includes(clientName)) {
+    return ["global"];
+  }
+  return ["global", "local"];
+}
+
+function getSupportedTransports(clientName) {
+  if (clientName === "codex") {
+    return ["stdio", "http"];
+  }
+  return ["stdio", "sse", "http"];
+}
+
+function promptHeaders() {
+  const headers = {};
+  const headerChoices = [
+    { label: "x-mcp-destination", value: "x-mcp-destination" },
+    { label: "x-sap-url", value: "x-sap-url" },
+    { label: "x-sap-client", value: "x-sap-client" },
+    { label: "x-sap-auth-type", value: "x-sap-auth-type" },
+    { label: "x-sap-jwt-token", value: "x-sap-jwt-token" },
+    { label: "x-sap-user", value: "x-sap-user" },
+    { label: "x-sap-password", value: "x-sap-password" },
+    { label: "Done", value: null },
+  ];
+
+  while (true) {
+    const key = promptChoice("Select header to add:", headerChoices);
+    if (!key) {
+      return headers;
+    }
+    const value = promptLine(`Value for ${key}: `);
+    headers[key] = value;
+
+    const addMore = promptChoice("Add another header?", [
+      { label: "yes", value: true },
+      { label: "no", value: false },
+    ]);
+    if (!addMore) {
+      return headers;
+    }
+  }
+}
+
+function promptNumber(question, defaultValue) {
+  while (true) {
+    const raw = promptLine(question, String(defaultValue));
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+    process.stdout.write("Please provide a positive number.\n");
+  }
+}
+
+function promptChoice(label, entries) {
+  process.stdout.write(`${label}\n`);
+  for (let i = 0; i < entries.length; i += 1) {
+    process.stdout.write(`  ${i + 1}. ${entries[i].label}\n`);
+  }
+  while (true) {
+    const answer = promptLine("Choose number: ");
+    if (isExitAnswer(answer)) {
+      exitTui();
+    }
+    const idx = Number.parseInt(answer, 10);
+    if (Number.isInteger(idx) && idx >= 1 && idx <= entries.length) {
+      process.stdout.write("\n");
+      return entries[idx - 1].value;
+    }
+    process.stdout.write("Invalid choice. Try again.\n");
+  }
+}
+
+function promptLine(question, defaultValue) {
+  process.stdout.write(question);
+  const buffer = Buffer.alloc(1024);
+  let chunk = "";
+  while (true) {
+    let bytesRead;
+    try {
+      bytesRead = fs.readSync(0, buffer, 0, buffer.length, null);
+    } catch (error) {
+      if (error && (error.code === "EAGAIN" || error.code === "EINTR")) {
+        sleepMs(10);
+        continue;
+      }
+      throw error;
+    }
+    if (bytesRead <= 0) {
+      break;
+    }
+    chunk += buffer.toString("utf8", 0, bytesRead);
+    if (chunk.includes("\n")) {
+      break;
+    }
+  }
+  const firstLine = chunk.split(/\r?\n/u)[0].trim();
+  if (isExitAnswer(firstLine)) {
+    exitTui();
+  }
+  if (!firstLine && defaultValue !== undefined) {
+    return defaultValue;
+  }
+  if (!firstLine) {
+    process.stdout.write("Value is required.\n");
+    return promptLine(question, defaultValue);
+  }
+  return firstLine;
+}
+
+function sleepMs(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function isExitAnswer(value) {
+  return ["q", "quit", "exit"].includes((value || "").toLowerCase());
+}
+
+function exitTui() {
+  process.stdout.write("\nTUI cancelled.\n");
+  process.exit(0);
 }
 
 function getClinePath(platformValue, homeDir, appDataDir) {
@@ -1215,6 +1476,7 @@ function printHelp(command) {
 
 Usage:
   mcp-conf <add|rm|ls|enable|disable|where> --client <name> [options]
+  mcp-conf tui
   mcp-conf help <command>
 
 Commands:
@@ -1224,6 +1486,7 @@ Commands:
   enable    enable an existing entry
   disable   disable an existing entry
   where     show where a server name is defined
+  tui       interactive setup wizard for add
 
 Run:
   mcp-conf <command> --help
@@ -1241,12 +1504,13 @@ Notes:
       process.stdout.write(`${header} add
 
 Usage:
-  mcp-conf add --client <name> --name <serverName> [--env <path> | --mcp <dest>] [options]
+  mcp-conf add --client <name> --name <serverName> [--env | --env-path <path> | --mcp <dest>] [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot | antigravity (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity (repeatable)
   --name <serverName>   required MCP server name key
-  --env <path>          .env path (stdio only)
+  --env                 use current shell/session env vars (stdio only)
+  --env-path <path>     .env path (stdio only)
   --mcp <dest>          destination name (stdio only)
   --transport <type>    stdio | sse | http (http => streamableHttp)
   --command <bin>       command to run (default: mcp-abap-adt)
@@ -1270,7 +1534,7 @@ Usage:
   mcp-conf rm --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot | antigravity (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -1289,7 +1553,7 @@ Usage:
   mcp-conf ls --client <name> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot | antigravity (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity (repeatable)
   --global              write to global user config (default)
   --local               write to project config (where supported)
   --all-projects        Claude global: list across all projects
@@ -1306,7 +1570,7 @@ Usage:
   mcp-conf enable --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot | antigravity (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -1325,7 +1589,7 @@ Usage:
   mcp-conf disable --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot | antigravity (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -1344,7 +1608,7 @@ Usage:
   mcp-conf where --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | copilot | antigravity (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -1353,6 +1617,18 @@ Options:
 
 Notes:
   Antigravity local scope is not supported yet; use --global.
+`);
+      break;
+    case "tui":
+      process.stdout.write(`${header} tui
+
+Usage:
+  mcp-conf tui
+
+Description:
+  Start interactive setup wizard for add command.
+  Wizard asks for client, scope, transport, auth source/URL,
+  and for sse/http also timeout and headers.
 `);
       break;
     default:
