@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [0.0.12] - 2026-02-13
+### Fixed
+- TUI operation order updated so `show` appears immediately after `ls`.
+- `update` auth detection now correctly parses stdio auth args from existing entries for all supported forms:
+  - `--env` (session env)
+  - legacy `--env <path>`
+  - `--env-path=<path>` and `--env-path <path>`
+  - `--mcp=<destination>` and `--mcp <destination>`
+- This fixes incorrect auth preselection/value handling in TUI update and prevents writing wrong stdio auth parameters to client settings.
+
+### Changed
+- Help/usage command ordering now lists `show` immediately after `ls`.
+- Docs updated to reflect the new TUI command order.
+
 ## [0.0.11] - 2026-02-13
 ### Added
 - Charmbracelet Crush MCP client support (`--client crush`).

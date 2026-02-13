@@ -92,7 +92,7 @@ mcp-conf tui
 - Controls: arrow keys + Enter, Ctrl+C to cancel.
 
 Options:
-- Commands: `add`, `rm`, `ls`, `enable`, `disable`, `where`, `show`, `update`, `tui` (first argument)
+- Commands: `add`, `rm`, `ls`, `show`, `enable`, `disable`, `where`, `update`, `tui` (first argument)
 - `--client <name>` (repeatable): `cline`, `codex`, `claude`, `goose`, `cursor`, `windsurf`, `opencode` (`kilo` alias), `copilot`, `antigravity`, `crush`
 - `--env`: use shell/session environment variables (stdio only)
 - `--env-path <path>`: use a specific `.env` file (stdio only)
@@ -112,7 +112,7 @@ Options:
 Notes:
 - `disable` and `rm` do not require `--env`, `--env-path`, or `--mcp`.
 - `--env`/`--env-path`/`--mcp` are only valid for `stdio` transport. For `sse/http`, use `--url` and optional `--header`.
-- `mcp-conf tui` starts an interactive wizard for `ls`/`add`/`show`/`update`/`rm`/`enable`/`disable`.
+- `mcp-conf tui` starts an interactive wizard for `ls`/`show`/`add`/`update`/`rm`/`enable`/`disable`.
 - Cursor/Copilot enable/disable are not implemented yet.
 - Antigravity enable/disable uses `disabled: true|false` on the entry.
 - Antigravity local scope is not supported yet; use `--global`.

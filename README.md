@@ -27,7 +27,7 @@ mcp-conf tui
 
 ## TUI
 
-`mcp-conf tui` starts an interactive wizard (`ls`/`add`/`show`/`update`/`rm`/`enable`/`disable`).
+`mcp-conf tui` starts an interactive wizard (`ls`/`show`/`add`/`update`/`rm`/`enable`/`disable`).
 - Step order: `operation` -> `client` -> `scope` (auto-skipped if only one scope is supported).
 - For `add` + `sse/http`: prompts for URL, timeout, and repeatable headers.
 - For `rm`/`enable`/`disable`: server name is selected from existing servers in chosen client/scope.

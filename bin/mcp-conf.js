@@ -26,7 +26,7 @@ const args = process.argv.slice(2);
 const action = args[0] && !args[0].startsWith("-") ? args[0] : null;
 if (
   action &&
-  ["add", "rm", "ls", "enable", "disable", "where", "show", "update", "tui", "help"].includes(
+  ["add", "rm", "ls", "show", "enable", "disable", "where", "update", "tui", "help"].includes(
     action,
   )
 ) {
@@ -62,7 +62,7 @@ if (args.includes("--help") || args.includes("-h") || action === "help") {
     action === "help"
       ? args[0]
       : action &&
-          ["add", "rm", "ls", "enable", "disable", "where", "show", "update", "tui"].includes(
+          ["add", "rm", "ls", "show", "enable", "disable", "where", "update", "tui"].includes(
             action,
           )
         ? action
@@ -159,9 +159,9 @@ for (let i = 0; i < args.length; i += 1) {
 
 if (
   !action ||
-  !["add", "rm", "ls", "enable", "disable", "where", "show", "update", "tui"].includes(action)
+  !["add", "rm", "ls", "show", "enable", "disable", "where", "update", "tui"].includes(action)
 ) {
-  fail("Provide a command: add | rm | ls | enable | disable | where | show | update | tui.");
+  fail("Provide a command: add | rm | ls | show | enable | disable | where | update | tui.");
 }
 
 let effectiveAction = action;
@@ -1446,19 +1446,42 @@ function parseServerArgs(args) {
     mcpDestination: null,
     useSessionEnv: false,
   };
-  for (const arg of args) {
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
     if (typeof arg !== "string") {
       continue;
     }
     if (arg.startsWith("--transport=")) {
       const value = arg.slice("--transport=".length);
       parsed.transport = value === "streamableHttp" ? "http" : value;
-    } else if (arg === "--env") {
+    } else if (arg === "--session-env") {
       parsed.useSessionEnv = true;
+    } else if (arg === "--env") {
+      const next = args[i + 1];
+      if (typeof next === "string" && next && !next.startsWith("-")) {
+        // Backward-compatible form: --env /path/to/.env
+        parsed.envPath = next;
+        parsed.useSessionEnv = false;
+        i += 1;
+      } else {
+        parsed.useSessionEnv = true;
+      }
     } else if (arg.startsWith("--env-path=") || arg.startsWith("--env=")) {
       parsed.envPath = arg.slice(arg.indexOf("=") + 1);
+    } else if (arg === "--env-path") {
+      const next = args[i + 1];
+      if (typeof next === "string" && next && !next.startsWith("-")) {
+        parsed.envPath = next;
+        i += 1;
+      }
     } else if (arg.startsWith("--mcp=")) {
       parsed.mcpDestination = arg.slice("--mcp=".length);
+    } else if (arg === "--mcp") {
+      const next = args[i + 1];
+      if (typeof next === "string" && next && !next.startsWith("-")) {
+        parsed.mcpDestination = next;
+        i += 1;
+      }
     }
   }
   return parsed;
@@ -1643,7 +1666,7 @@ function printHelp(command) {
     process.stdout.write(`${header}
 
 Usage:
-  mcp-conf <add|rm|ls|enable|disable|where|show|update> --client <name> [options]
+  mcp-conf <add|rm|ls|show|enable|disable|where|update> --client <name> [options]
   mcp-conf tui
   mcp-conf help <command>
 
@@ -1651,10 +1674,10 @@ Commands:
   add       add or update an MCP server entry
   rm        remove an MCP server entry
   ls        list MCP server entries
+  show      show server configuration details
   enable    enable an existing entry
   disable   disable an existing entry
   where     show where a server name is defined
-  show      show server configuration details
   update    update an existing server entry
   tui       interactive setup wizard
 
@@ -1840,7 +1863,7 @@ Usage:
   mcp-conf tui
 
 Description:
-  Start interactive setup wizard for ls/add/show/update/rm/enable/disable.
+  Start interactive setup wizard for ls/show/add/update/rm/enable/disable.
   Flow: operation -> client -> scope (skips scope when only one is supported).
   For add/update + sse/http, wizard also asks timeout and repeatable headers.
   For rm/enable/disable/show/update, wizard selects server from existing entries.

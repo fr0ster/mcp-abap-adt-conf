@@ -36,8 +36,8 @@ async function main() {
 
   result.tuiAction = await askSelect("Operation", [
     "ls",
-    "add",
     "show",
+    "add",
     "update",
     "rm",
     "enable",
