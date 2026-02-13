@@ -12,6 +12,8 @@
 - Help output now documents Qwen across command-specific `--client` lists.
 - Antigravity/Qwen notes clarified as global-only scope.
 - Documentation updated with Qwen usage examples and config location.
+- Local LLM CLI directories are now ignored by Git (`.gitignore`) except Copilot-related `.vscode`.
+- Biome now respects ignore files via VCS settings, so local CLI folders are excluded from `npm run lint`.
 
 ## [0.0.13] - 2026-02-13
 ### Changed
