@@ -94,8 +94,9 @@ mcp-conf tui
 Options:
 - Commands: `add`, `rm`, `ls`, `show`, `enable`, `disable`, `where`, `update`, `tui` (first argument)
 - `--client <name>` (repeatable): `cline`, `codex`, `claude`, `goose`, `cursor`, `windsurf`, `opencode` (`kilo` alias), `copilot`, `antigravity`, `crush`
-- `--env`: use shell/session environment variables (stdio only)
+- `--env <name>`: use named env profile; writes `--env=<name>` (stdio only)
 - `--env-path <path>`: use a specific `.env` file (stdio only)
+- `--session-env`: use shell/session environment variables (stdio only)
 - `--mcp <destination>`: use service key destination
 - `--name <serverName>`: MCP server name (required)
 - `--transport <type>`: `stdio`, `sse`, or `http` (`http` maps to `streamableHttp`)
@@ -110,8 +111,8 @@ Options:
 - `--json`: JSON-only output for `show`
 
 Notes:
-- `disable` and `rm` do not require `--env`, `--env-path`, or `--mcp`.
-- `--env`/`--env-path`/`--mcp` are only valid for `stdio` transport. For `sse/http`, use `--url` and optional `--header`.
+- `disable` and `rm` do not require `--env`, `--env-path`, `--session-env`, or `--mcp`.
+- `--env`/`--env-path`/`--session-env`/`--mcp` are only valid for `stdio` transport. For `sse/http`, use `--url` and optional `--header`.
 - `mcp-conf tui` starts an interactive wizard for `ls`/`show`/`add`/`update`/`rm`/`enable`/`disable`.
 - Cursor/Copilot enable/disable are not implemented yet.
 - Antigravity enable/disable uses `disabled: true|false` on the entry.
@@ -121,7 +122,7 @@ Notes:
 - Antigravity HTTP entries use `serverUrl` instead of `url`.
 - New entries for Cline, Codex, Windsurf, Goose, Claude, OpenCode, and Crush are added **disabled by default**. Use `enable` to turn them on.
 - Windsurf follows `disabled` like Cline. The configurator sets `disabled = true` for default-disabled entries.
-- `enable`/`disable` only work if the server entry already exists. Use add commands with `--env`, `--env-path`, or `--mcp` first.
+- `enable`/`disable` only work if the server entry already exists. Use add commands with `--env`, `--env-path`, `--session-env`, or `--mcp` first.
 - Non-stdio transports are supported for Cline/Cursor/Windsurf/Claude/Goose. Codex supports `http` (streamable HTTP) but not `sse`.
 - Codex writes custom headers under `http_headers` in `~/.codex/config.toml` (or `./.codex/config.toml` for `--local`).
 - Codex HTTP entries include `startup_timeout_sec` (default: 60).

@@ -35,26 +35,36 @@ async function main() {
   };
 
   result.tuiAction = await askSelect("Operation", [
-    "ls",
-    "show",
-    "add",
-    "update",
-    "rm",
-    "enable",
-    "disable",
+    { name: "ls", message: "📖 ls" },
+    { name: "show", message: "🔎 show" },
+    { name: "sep-view", role: "separator", message: "────────────" },
+    { name: "add", message: "➕ add" },
+    { name: "update", message: "✏️ update" },
+    { name: "enable", message: "✅ enable" },
+    { name: "disable", message: "⏸️ disable" },
+    { name: "rm", message: "🗑️ rm" },
+    { name: "sep-exit", role: "separator", message: "────────────" },
+    { name: "exit", message: "🚪 exit" },
   ]);
+  if (result.tuiAction === "exit") {
+    emitResult({ tuiAction: "exit" });
+    return;
+  }
   const client = await askSelect(
     "Client",
     CLIENTS.map((item) => item.name),
     CLIENTS.map((item) => item.message),
   );
   result.clients = [client];
-
-  const scopes = getSupportedScopes(client);
-  result.scope = scopes.length === 1 ? scopes[0] : await askSelect("Scope", ["global", "local"]);
+  await configureScope(result, client);
 
   if (["rm", "enable", "disable", "show", "update"].includes(result.tuiAction)) {
-    const serverNames = listExistingServers(client, result.scope);
+    const serverNames = listExistingServers(
+      client,
+      result.scope,
+      result.allProjects,
+      result.projectPath,
+    );
     if (serverNames.length === 0) {
       throw new Error(`No existing MCP servers found for ${client} (${result.scope})`);
     }
@@ -79,32 +89,37 @@ async function main() {
 
   if (result.transport === "stdio") {
     const authSource = await askSelect("Auth source for stdio", [
-      "service key destination (--mcp)",
-      "session environment (--env)",
-      "specific env file (--env-path)",
+      "destination (--mcp=<name>)",
+      "env name (--env=<name>)",
+      "env file (--env-path=<name>)",
     ]);
-    if (authSource.startsWith("service key")) {
+    if (authSource.startsWith("destination")) {
       result.mcpDestination = await askInput("Destination name", "TRIAL");
       result.useSessionEnv = false;
+      result.envName = null;
       result.envPath = null;
       result.url = null;
       emitResult(result);
       return;
     }
-    if (authSource.startsWith("specific env file")) {
-      result.envPath = await askInput("Path to .env file");
+    if (authSource.startsWith("env name")) {
+      result.envName = await askInput("Env name", "TRIAL");
       result.useSessionEnv = false;
+      result.envPath = null;
       result.mcpDestination = null;
       result.url = null;
       emitResult(result);
       return;
     }
-    result.useSessionEnv = true;
-    result.envPath = null;
-    result.mcpDestination = null;
-    result.url = null;
-    emitResult(result);
-    return;
+    if (authSource.startsWith("env file")) {
+      result.envPath = await askInput("Path to .env file");
+      result.useSessionEnv = false;
+      result.envName = null;
+      result.mcpDestination = null;
+      result.url = null;
+      emitResult(result);
+      return;
+    }
   }
 
   result.url = await askInput("Server URL (http/https)");
@@ -118,7 +133,13 @@ async function main() {
 }
 
 async function configureUpdate(result, client) {
-  const current = getServerConfig(client, result.scope, result.name);
+  const current = getServerConfig(
+    client,
+    result.scope,
+    result.name,
+    result.allProjects,
+    result.projectPath,
+  );
   const currentTransport = current.transport || "stdio";
   result.transport = currentTransport;
   result.command = current.command || "mcp-abap-adt";
@@ -128,42 +149,48 @@ async function configureUpdate(result, client) {
 
   if (currentTransport === "stdio") {
     const authChoices = [
-      "service key destination (--mcp)",
-      "session environment (--env)",
-      "specific env file (--env-path)",
+      "destination (--mcp=<name>)",
+      "env name (--env=<name>)",
+      "env file (--env-path=<name>)",
     ];
     const authType = current.auth?.type || "unknown";
     const authInitial =
       authType === "mcp" ? 0 : authType === "env" ? 1 : authType === "env-path" ? 2 : 0;
     const authSource = await askSelect("Auth source for stdio", authChoices, null, authInitial);
-    if (authSource.startsWith("service key")) {
+    if (authSource.startsWith("destination")) {
       result.mcpDestination = await askInput("Destination name", current.auth?.value || "TRIAL");
       result.useSessionEnv = false;
+      result.envName = null;
       result.envPath = null;
       result.url = null;
       result.headers = {};
       return;
     }
-    if (authSource.startsWith("specific env file")) {
-      result.envPath = await askInput("Path to .env file", current.auth?.value || undefined);
+    if (authSource.startsWith("env name")) {
+      result.envName = await askInput("Env name", current.auth?.value || "TRIAL");
       result.useSessionEnv = false;
+      result.envPath = null;
       result.mcpDestination = null;
       result.url = null;
       result.headers = {};
       return;
     }
-    result.useSessionEnv = true;
-    result.envPath = null;
-    result.mcpDestination = null;
-    result.url = null;
-    result.headers = {};
-    return;
+    if (authSource.startsWith("env file")) {
+      result.envPath = await askInput("Path to .env file", current.auth?.value || undefined);
+      result.useSessionEnv = false;
+      result.envName = null;
+      result.mcpDestination = null;
+      result.url = null;
+      result.headers = {};
+      return;
+    }
   }
 
   result.url = await askInput("Server URL (http/https)", current.url || undefined);
   result.timeout = await askPositiveNumber("Timeout seconds", result.timeout);
   result.headers = await askHeaders(current.headers || {});
   result.useSessionEnv = false;
+  result.envName = null;
   result.envPath = null;
   result.mcpDestination = null;
 }
@@ -173,10 +200,15 @@ function emitResult(result) {
 }
 
 async function askSelect(message, choices, choiceLabels, initial = 0) {
-  const promptChoices = choices.map((value, index) => ({
-    name: value,
-    message: choiceLabels?.[index] || value,
-  }));
+  const promptChoices = choices.map((value, index) => {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      return value;
+    }
+    return {
+      name: value,
+      message: choiceLabels?.[index] || value,
+    };
+  });
   const select = new Select({
     name: "value",
     message,
@@ -239,6 +271,33 @@ function getSupportedScopes(clientName) {
   return ["global", "local"];
 }
 
+async function configureScope(result, clientName) {
+  result.allProjects = false;
+  result.projectPath = null;
+
+  if (clientName === "claude") {
+    result.scope = await askSelect("Scope", ["global", "local"]);
+    if (result.scope === "local") {
+      return;
+    }
+    if (supportsClaudeGlobalAllProjects(result.tuiAction)) {
+      const globalMode = await askSelect("Claude global", [
+        { name: "single", message: "for current project" },
+        { name: "all", message: "for all projects" },
+      ]);
+      result.allProjects = globalMode === "all";
+    }
+    return;
+  }
+
+  const scopes = getSupportedScopes(clientName);
+  result.scope = scopes.length === 1 ? scopes[0] : await askSelect("Scope", ["global", "local"]);
+}
+
+function supportsClaudeGlobalAllProjects(action) {
+  return ["ls", "show", "rm", "enable", "disable"].includes(action);
+}
+
 function getSupportedTransports(clientName) {
   if (clientName === "codex") {
     return ["stdio", "http"];
@@ -246,10 +305,16 @@ function getSupportedTransports(clientName) {
   return ["stdio", "sse", "http"];
 }
 
-function listExistingServers(clientName, scope) {
+function listExistingServers(clientName, scope, allProjects = false, projectPath = null) {
   const cliPath = path.join(__dirname, "mcp-conf.js");
   const scopeArg = scope === "local" ? "--local" : "--global";
-  const run = spawnSync(process.execPath, [cliPath, "ls", "--client", clientName, scopeArg], {
+  const cliArgs = [cliPath, "ls", "--client", clientName, scopeArg];
+  if (allProjects) {
+    cliArgs.push("--all-projects");
+  } else if (projectPath) {
+    cliArgs.push("--project", projectPath);
+  }
+  const run = spawnSync(process.execPath, cliArgs, {
     encoding: "utf8",
   });
   if (run.status !== 0) {
@@ -271,16 +336,28 @@ function listExistingServers(clientName, scope) {
   return [...new Set(names)].sort((a, b) => a.localeCompare(b));
 }
 
-function getServerConfig(clientName, scope, serverName) {
+function getServerConfig(clientName, scope, serverName, allProjects = false, projectPath = null) {
   const cliPath = path.join(__dirname, "mcp-conf.js");
   const scopeArg = scope === "local" ? "--local" : "--global";
-  const run = spawnSync(
-    process.execPath,
-    [cliPath, "show", "--client", clientName, "--name", serverName, scopeArg, "--json"],
-    {
-      encoding: "utf8",
-    },
-  );
+  const cliArgs = [
+    cliPath,
+    "show",
+    "--client",
+    clientName,
+    "--name",
+    serverName,
+    scopeArg,
+    "--json",
+    "--normalized",
+  ];
+  if (allProjects) {
+    cliArgs.push("--all-projects");
+  } else if (projectPath) {
+    cliArgs.push("--project", projectPath);
+  }
+  const run = spawnSync(process.execPath, cliArgs, {
+    encoding: "utf8",
+  });
   if (run.status !== 0) {
     const stderr = String(run.stderr || "").trim();
     throw new Error(stderr || "Failed to read existing server config");
@@ -293,9 +370,40 @@ function getServerConfig(clientName, scope, serverName) {
 }
 
 main().catch((error) => {
-  if (error === "") {
+  if (isPromptCancelError(error)) {
     process.exit(0);
   }
   process.stderr.write(`${error?.message || String(error)}\n`);
   process.exit(1);
 });
+
+process.on("uncaughtException", (error) => {
+  if (isPromptCancelError(error)) {
+    process.exit(0);
+  }
+  process.stderr.write(`${error?.message || String(error)}\n`);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (error) => {
+  if (isPromptCancelError(error)) {
+    process.exit(0);
+  }
+  process.stderr.write(`${error?.message || String(error)}\n`);
+  process.exit(1);
+});
+
+function isPromptCancelError(error) {
+  if (error === "" || error === null || error === undefined) {
+    return true;
+  }
+  if (typeof error === "string") {
+    return error.toLowerCase().includes("cancel");
+  }
+  const message = String(error?.message || "");
+  return (
+    error?.code === "ERR_USE_AFTER_CLOSE" ||
+    message.toLowerCase().includes("cancel") ||
+    message.toLowerCase().includes("readline was closed")
+  );
+}

@@ -1,0 +1,5 @@
+[mcp_servers.abap]
+command = "mcp-abap-adt"
+args = [ "--transport=stdio", "--env=DEV" ]
+startup_timeout_sec = 60
+enabled = false

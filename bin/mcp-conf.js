@@ -34,6 +34,7 @@ if (
 }
 const options = {
   clients: [],
+  envName: null,
   envPath: null,
   useSessionEnv: false,
   mcpDestination: null,
@@ -52,6 +53,7 @@ const options = {
   where: false,
   show: false,
   outputJson: false,
+  outputNormalized: false,
   url: null,
   headers: {},
   timeout: 60,
@@ -76,30 +78,45 @@ for (let i = 0; i < args.length; i += 1) {
   if (arg === "--client") {
     options.clients.push(normalizeClientName(args[i + 1]));
     i += 1;
+  } else if (arg.startsWith("--env=")) {
+    options.envName = arg.slice("--env=".length);
+    options.useSessionEnv = false;
+    options.envPath = null;
+    options.mcpDestination = null;
   } else if (arg === "--env") {
     const maybePath = args[i + 1];
     if (maybePath && !maybePath.startsWith("-")) {
-      // Backward-compatible form: --env /path/to/.env
-      options.envPath = maybePath;
+      if (looksLikeEnvPath(maybePath)) {
+        // Backward-compatible form: --env /path/to/.env
+        options.envPath = maybePath;
+        options.envName = null;
+      } else {
+        options.envName = maybePath;
+        options.envPath = null;
+      }
       options.useSessionEnv = false;
       options.mcpDestination = null;
       i += 1;
     } else {
       options.useSessionEnv = true;
+      options.envName = null;
       options.envPath = null;
       options.mcpDestination = null;
     }
   } else if (arg === "--env-path") {
     options.envPath = args[i + 1];
+    options.envName = null;
     options.useSessionEnv = false;
     options.mcpDestination = null;
     i += 1;
   } else if (arg === "--session-env") {
     options.useSessionEnv = true;
+    options.envName = null;
     options.envPath = null;
     options.mcpDestination = null;
   } else if (arg === "--mcp") {
     options.mcpDestination = args[i + 1];
+    options.envName = null;
     options.useSessionEnv = false;
     options.envPath = null;
     i += 1;
@@ -154,6 +171,8 @@ for (let i = 0; i < args.length; i += 1) {
     options.force = true;
   } else if (arg === "--json") {
     options.outputJson = true;
+  } else if (arg === "--normalized") {
+    options.outputNormalized = true;
   }
 }
 
@@ -168,6 +187,9 @@ let effectiveAction = action;
 if (action === "tui") {
   runTuiWizard(options);
   effectiveAction = options.tuiAction || "add";
+}
+if (effectiveAction === "exit") {
+  process.exit(0);
 }
 
 if (options.clients.length === 0) {
@@ -242,8 +264,8 @@ const requiresConnectionParams =
   !options.remove && !options.toggle && !options.list && !options.where && !options.show;
 
 if (requiresConnectionParams && options.transport === "stdio") {
-  if (!options.envPath && !options.mcpDestination && !options.useSessionEnv) {
-    fail("Provide --env, --env-path <path>, or --mcp <destination>.");
+  if (!options.envName && !options.envPath && !options.mcpDestination && !options.useSessionEnv) {
+    fail("Provide --env <name>, --env-path <path>, --session-env, or --mcp <destination>.");
   }
 }
 
@@ -251,8 +273,8 @@ if (requiresConnectionParams && options.transport !== "stdio") {
   if (!options.url) {
     fail("Provide --url <http(s)://...> for sse/http transports.");
   }
-  if (options.envPath || options.mcpDestination || options.useSessionEnv) {
-    fail("--env/--env-path/--mcp are only valid for stdio transport.");
+  if (options.envName || options.envPath || options.mcpDestination || options.useSessionEnv) {
+    fail("--env/--env-path/--session-env/--mcp are only valid for stdio transport.");
   }
 }
 
@@ -263,13 +285,15 @@ const userProfile = process.env.USERPROFILE || home;
 
 const serverArgsRaw = [
   `--transport=${options.transport}`,
-  options.useSessionEnv
-    ? "--env"
-    : options.envPath
-      ? `--env-path=${options.envPath}`
-      : options.mcpDestination
-        ? `--mcp=${options.mcpDestination.toLowerCase()}`
-        : undefined,
+  options.envName
+    ? `--env=${options.envName}`
+    : options.useSessionEnv
+      ? "--session-env"
+      : options.envPath
+        ? `--env-path=${options.envPath}`
+        : options.mcpDestination
+          ? `--mcp=${options.mcpDestination.toLowerCase()}`
+          : undefined,
 ];
 const serverArgs = serverArgsRaw.filter(Boolean);
 
@@ -489,7 +513,8 @@ function runTuiWizard(opts) {
   const rawPayload = run.output?.[3] || "";
   const payload = String(rawPayload).trim();
   if (!payload) {
-    fail("TUI did not return configuration.");
+    opts.tuiAction = "exit";
+    return;
   }
   let selected;
   try {
@@ -1314,7 +1339,10 @@ function showJsonConfig(filePath, clientType, serverName) {
   if (!entry) {
     fail(`Server "${serverName}" not found in ${filePath}.`);
   }
-  outputShow(filePath, serverName, normalizeServerDetails(clientType, serverName, entry));
+  const details = options.outputNormalized
+    ? normalizeServerDetails(clientType, serverName, entry)
+    : cloneJsonLike(entry);
+  outputShow(filePath, serverName, details);
 }
 
 function showCodexConfig(filePath, serverName) {
@@ -1327,7 +1355,10 @@ function showCodexConfig(filePath, serverName) {
   if (!entry) {
     fail(`Server "${serverName}" not found in ${filePath}.`);
   }
-  outputShow(filePath, serverName, normalizeServerDetails("codex", serverName, entry));
+  const details = options.outputNormalized
+    ? normalizeServerDetails("codex", serverName, entry)
+    : cloneJsonLike(entry);
+  outputShow(filePath, serverName, details);
 }
 
 function showGooseConfig(filePath, serverName) {
@@ -1340,7 +1371,10 @@ function showGooseConfig(filePath, serverName) {
   if (!entry) {
     fail(`Server "${serverName}" not found in ${filePath}.`);
   }
-  outputShow(filePath, serverName, normalizeServerDetails("goose", serverName, entry));
+  const details = options.outputNormalized
+    ? normalizeServerDetails("goose", serverName, entry)
+    : cloneJsonLike(entry);
+  outputShow(filePath, serverName, details);
 }
 
 function showClaudeConfig(filePath, serverName, allProjects, projectPath) {
@@ -1355,10 +1389,17 @@ function showClaudeConfig(filePath, serverName, allProjects, projectPath) {
         const projectNode = data.projects?.[key];
         const store = projectNode?.mcpServers || {};
         if (store[serverName]) {
-          results.push({
-            project: key,
-            ...normalizeServerDetails("claude", serverName, store[serverName]),
-          });
+          results.push(
+            options.outputNormalized
+              ? {
+                  project: key,
+                  ...normalizeServerDetails("claude", serverName, store[serverName]),
+                }
+              : {
+                  project: key,
+                  raw: cloneJsonLike(store[serverName]),
+                },
+          );
         }
       }
       if (!results.length) {
@@ -1369,7 +1410,12 @@ function showClaudeConfig(filePath, serverName, allProjects, projectPath) {
         return;
       }
       for (const result of results) {
-        outputShow(filePath, serverName, result, result.project);
+        outputShow(
+          filePath,
+          serverName,
+          options.outputNormalized ? result : result.raw,
+          result.project,
+        );
       }
       return;
     }
@@ -1379,12 +1425,10 @@ function showClaudeConfig(filePath, serverName, allProjects, projectPath) {
     if (!entry) {
       fail(`Server "${serverName}" not found for ${projectKey}.`);
     }
-    outputShow(
-      filePath,
-      serverName,
-      normalizeServerDetails("claude", serverName, entry, projectKey),
-      projectKey,
-    );
+    const details = options.outputNormalized
+      ? normalizeServerDetails("claude", serverName, entry, projectKey)
+      : cloneJsonLike(entry);
+    outputShow(filePath, serverName, details, projectKey);
     return;
   }
   const store = data.mcpServers || {};
@@ -1392,7 +1436,10 @@ function showClaudeConfig(filePath, serverName, allProjects, projectPath) {
   if (!entry) {
     fail(`Server "${serverName}" not found in ${filePath}.`);
   }
-  outputShow(filePath, serverName, normalizeServerDetails("claude", serverName, entry));
+  const details = options.outputNormalized
+    ? normalizeServerDetails("claude", serverName, entry)
+    : cloneJsonLike(entry);
+  outputShow(filePath, serverName, details);
 }
 
 function normalizeServerDetails(clientType, serverName, entry, projectKey) {
@@ -1439,9 +1486,21 @@ function compactServerDetails(details) {
   return compact;
 }
 
+function cloneJsonLike(value) {
+  if (value === null || value === undefined) {
+    return value;
+  }
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return value;
+  }
+}
+
 function parseServerArgs(args) {
   const parsed = {
     transport: null,
+    envName: null,
     envPath: null,
     mcpDestination: null,
     useSessionEnv: false,
@@ -1456,17 +1515,28 @@ function parseServerArgs(args) {
       parsed.transport = value === "streamableHttp" ? "http" : value;
     } else if (arg === "--session-env") {
       parsed.useSessionEnv = true;
+    } else if (arg.startsWith("--env=")) {
+      const value = arg.slice("--env=".length);
+      if (looksLikeEnvPath(value)) {
+        parsed.envPath = value;
+      } else {
+        parsed.envName = value;
+      }
     } else if (arg === "--env") {
       const next = args[i + 1];
       if (typeof next === "string" && next && !next.startsWith("-")) {
-        // Backward-compatible form: --env /path/to/.env
-        parsed.envPath = next;
+        if (looksLikeEnvPath(next)) {
+          // Backward-compatible form: --env /path/to/.env
+          parsed.envPath = next;
+        } else {
+          parsed.envName = next;
+        }
         parsed.useSessionEnv = false;
         i += 1;
       } else {
         parsed.useSessionEnv = true;
       }
-    } else if (arg.startsWith("--env-path=") || arg.startsWith("--env=")) {
+    } else if (arg.startsWith("--env-path=")) {
       parsed.envPath = arg.slice(arg.indexOf("=") + 1);
     } else if (arg === "--env-path") {
       const next = args[i + 1];
@@ -1557,13 +1627,29 @@ function inferAuth(parsedArgs) {
   if (parsedArgs.mcpDestination) {
     return { type: "mcp", value: parsedArgs.mcpDestination };
   }
+  if (parsedArgs.envName) {
+    return { type: "env", value: parsedArgs.envName };
+  }
   if (parsedArgs.envPath) {
     return { type: "env-path", value: parsedArgs.envPath };
   }
   if (parsedArgs.useSessionEnv) {
-    return { type: "env", value: null };
+    return { type: "session-env", value: null };
   }
   return { type: "unknown", value: null };
+}
+
+function looksLikeEnvPath(value) {
+  if (!value || typeof value !== "string") {
+    return false;
+  }
+  return (
+    value.includes("/") ||
+    value.includes("\\") ||
+    value.endsWith(".env") ||
+    value.startsWith(".") ||
+    value.startsWith("~")
+  );
 }
 
 function readJson(filePath) {
@@ -1697,13 +1783,14 @@ Notes:
       process.stdout.write(`${header} add
 
 Usage:
-  mcp-conf add --client <name> --name <serverName> [--env | --env-path <path> | --mcp <dest>] [options]
+  mcp-conf add --client <name> --name <serverName> [--env <name> | --env-path <path> | --session-env | --mcp <dest>] [options]
 
 Options:
   --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | crush (repeatable)
   --name <serverName>   required MCP server name key
-  --env                 use current shell/session env vars (stdio only)
+  --env <name>          env profile name (stdio only), writes --env=<name>
   --env-path <path>     .env path (stdio only)
+  --session-env         use current shell/session env vars (stdio only)
   --mcp <dest>          destination name (stdio only)
   --transport <type>    stdio | sse | http (http => streamableHttp)
   --command <bin>       command to run (default: mcp-abap-adt)
@@ -1826,6 +1913,7 @@ Options:
   --all-projects        Claude global: show from all projects
   --project <path>      Claude global: target a specific project path
   --json                output JSON only (machine-readable)
+  --normalized          output normalized view (for tooling); default is raw config entry
 
 Notes:
   Antigravity local scope is not supported yet; use --global.
@@ -1835,13 +1923,14 @@ Notes:
       process.stdout.write(`${header} update
 
 Usage:
-  mcp-conf update --client <name> --name <serverName> [--env | --env-path <path> | --mcp <dest>] [options]
+  mcp-conf update --client <name> --name <serverName> [--env <name> | --env-path <path> | --session-env | --mcp <dest>] [options]
 
 Options:
   --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | crush (repeatable)
   --name <serverName>   required MCP server name key
-  --env                 use current shell/session env vars (stdio only)
+  --env <name>          env profile name (stdio only), writes --env=<name>
   --env-path <path>     .env path (stdio only)
+  --session-env         use current shell/session env vars (stdio only)
   --mcp <dest>          destination name (stdio only)
   --transport <type>    stdio | sse | http (http => streamableHttp)
   --url <http(s)://...> required for sse/http

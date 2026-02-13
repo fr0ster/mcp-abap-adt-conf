@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+## [0.0.13] - 2026-02-13
+### Changed
+- `--env` now works as a named stdio auth source (same flow as `--mcp`) and writes `--env=<name>` to saved server args.
+- `show` now returns raw config entry by default (exact stored settings).
+- Added `show --normalized` for tooling/internal use when normalized fields are required.
+- TUI stdio auth labels are now consistent:
+  - `destination (--mcp=<name>)`
+  - `env name (--env=<name>)`
+  - `env file (--env-path=<name>)`
+- TUI operation menu refreshed with grouped items and non-selectable separators.
+- TUI operation labels are simplified (`ls`, `show`, `add`, `update`, `enable`, `disable`, `rm`, `exit`).
+- For Claude in TUI, global scope is split into:
+  - `for current project`
+  - `for all projects` (uses `--all-projects`)
+
+### Fixed
+- TUI now exits cleanly on `Ctrl+C` without throwing `ERR_USE_AFTER_CLOSE`.
+- Added explicit `exit` action in TUI to leave configurator without changes.
+
+### Changed
+- Added explicit `--session-env` for shell/session environment auth in stdio mode.
+
 ## [0.0.12] - 2026-02-13
 ### Fixed
 - TUI operation order updated so `show` appears immediately after `ls`.
