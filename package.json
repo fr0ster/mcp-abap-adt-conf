@@ -1,6 +1,6 @@
 {
   "name": "@mcp-abap-adt/configurator",
-  "version": "0.0.12",
+  "version": "0.1.0",
   "description": "MCP client configurator for mcp-abap-adt and mcp-abap-adt-proxy",
   "license": "MIT",
   "repository": {
