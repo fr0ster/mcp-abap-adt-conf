@@ -1,3 +1,13 @@
 node_modules/
 *.log
 .DS_Store
+
+# Local LLM CLI folders (keep Copilot/.vscode tracked)
+.claude/
+.codex/
+.gemini/
+.qwen/
+.cursor/
+.windsurf/
+.goose/
+.antigravity/
