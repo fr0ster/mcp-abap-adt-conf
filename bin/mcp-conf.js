@@ -419,6 +419,18 @@ for (const client of options.clients) {
         writeJsonConfig(getAntigravityPath(home, scope), options.name, serverArgs, "antigravity");
       }
       break;
+    case "qwen":
+      requireScope("Qwen", ["global"], scope);
+      if (options.list) {
+        listJsonConfig(getQwenPath(home), "qwen");
+      } else if (options.show) {
+        showJsonConfig(getQwenPath(home), "qwen", options.name);
+      } else if (options.where) {
+        whereJsonConfig(getQwenPath(home), "qwen", options.name);
+      } else {
+        writeJsonConfig(getQwenPath(home), options.name, serverArgs, "qwen");
+      }
+      break;
     case "copilot":
       requireScope("GitHub Copilot", ["local"], scope);
       if (options.list) {
@@ -613,6 +625,10 @@ function getAntigravityPath(homeDir, scopeValue) {
     return path.join(process.cwd(), ".antigravity", "mcp.json");
   }
   return path.join(homeDir, ".gemini", "antigravity", "mcp_config.json");
+}
+
+function getQwenPath(homeDir) {
+  return path.join(homeDir, ".qwen", "settings.json");
 }
 
 function getWindsurfPath(platformValue, homeDir, userProfileDir) {
@@ -1786,7 +1802,7 @@ Usage:
   mcp-conf add --client <name> --name <serverName> [--env <name> | --env-path <path> | --session-env | --mcp <dest>] [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | crush (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | crush (repeatable)
   --name <serverName>   required MCP server name key
   --env <name>          env profile name (stdio only), writes --env=<name>
   --env-path <path>     .env path (stdio only)
@@ -1804,7 +1820,7 @@ Options:
   --dry-run             print changes without writing files
 
 Notes:
-  Antigravity local scope is not supported yet; use --global.
+  Antigravity and Qwen are global-only; use --global.
 `);
       break;
     case "rm":
@@ -1814,7 +1830,7 @@ Usage:
   mcp-conf rm --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | crush (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -1823,7 +1839,7 @@ Options:
   --dry-run             print changes without writing files
 
 Notes:
-  Antigravity local scope is not supported yet; use --global.
+  Antigravity and Qwen are global-only; use --global.
 `);
       break;
     case "ls":
@@ -1833,14 +1849,14 @@ Usage:
   mcp-conf ls --client <name> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | crush (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | crush (repeatable)
   --global              write to global user config (default)
   --local               write to project config (where supported)
   --all-projects        Claude global: list across all projects
   --project <path>      Claude global: target a specific project path
 
 Notes:
-  Antigravity local scope is not supported yet; use --global.
+  Antigravity and Qwen are global-only; use --global.
 `);
       break;
     case "enable":
@@ -1850,7 +1866,7 @@ Usage:
   mcp-conf enable --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | crush (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -1859,7 +1875,7 @@ Options:
   --dry-run             print changes without writing files
 
 Notes:
-  Antigravity local scope is not supported yet; use --global.
+  Antigravity and Qwen are global-only; use --global.
 `);
       break;
     case "disable":
@@ -1869,7 +1885,7 @@ Usage:
   mcp-conf disable --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | crush (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -1878,7 +1894,7 @@ Options:
   --dry-run             print changes without writing files
 
 Notes:
-  Antigravity local scope is not supported yet; use --global.
+  Antigravity and Qwen are global-only; use --global.
 `);
       break;
     case "where":
@@ -1888,7 +1904,7 @@ Usage:
   mcp-conf where --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | crush (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -1896,7 +1912,7 @@ Options:
   --project <path>      Claude global: target a specific project path
 
 Notes:
-  Antigravity local scope is not supported yet; use --global.
+  Antigravity and Qwen are global-only; use --global.
 `);
       break;
     case "show":
@@ -1906,7 +1922,7 @@ Usage:
   mcp-conf show --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | crush (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              read from global user config (default)
   --local               read from project config (where supported)
@@ -1916,7 +1932,7 @@ Options:
   --normalized          output normalized view (for tooling); default is raw config entry
 
 Notes:
-  Antigravity local scope is not supported yet; use --global.
+  Antigravity and Qwen are global-only; use --global.
 `);
       break;
     case "update":
@@ -1926,7 +1942,7 @@ Usage:
   mcp-conf update --client <name> --name <serverName> [--env <name> | --env-path <path> | --session-env | --mcp <dest>] [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | crush (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | crush (repeatable)
   --name <serverName>   required MCP server name key
   --env <name>          env profile name (stdio only), writes --env=<name>
   --env-path <path>     .env path (stdio only)
@@ -1942,7 +1958,7 @@ Options:
   --dry-run             print changes without writing files
 
 Notes:
-  Antigravity local scope is not supported yet; use --global.
+  Antigravity and Qwen are global-only; use --global.
 `);
       break;
     case "tui":

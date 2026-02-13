@@ -24,6 +24,7 @@ mcp-conf add --client opencode --name abap --transport http --url http://localho
 mcp-conf add --client kilo --name abap --transport http --url http://localhost:3000/mcp/stream/http
 mcp-conf add --client copilot --name abap --transport http --url http://localhost:3000/mcp/stream/http --header x-mcp-destination=trial
 mcp-conf add --client antigravity --name abap --transport http --url http://localhost:3000/mcp/stream/http
+mcp-conf add --client qwen --name abap --transport http --url http://localhost:3000/mcp/stream/http
 mcp-conf add --client crush --name abap --mcp TRIAL
 mcp-conf add --client crush --name abap --transport http --url http://localhost:3000/mcp/stream/http
 mcp-conf tui
@@ -51,6 +52,7 @@ Enable MCP:
 mcp-conf enable --client codex --name abap
 mcp-conf enable --client cline --name abap
 mcp-conf enable --client antigravity --name abap
+mcp-conf enable --client qwen --name abap
 mcp-conf enable --client crush --name abap
 ```
 
@@ -60,6 +62,7 @@ mcp-conf rm --client codex --name abap
 mcp-conf rm --client cline --name abap
 mcp-conf rm --client claude --name abap
 mcp-conf rm --client antigravity --name abap
+mcp-conf rm --client qwen --name abap
 mcp-conf rm --client crush --name abap
 ```
 
@@ -70,6 +73,7 @@ mcp-conf ls --client cline
 mcp-conf ls --client claude --local
 mcp-conf ls --client claude --all-projects
 mcp-conf ls --client antigravity --global
+mcp-conf ls --client qwen --global
 mcp-conf ls --client crush
 mcp-conf ls --client crush --local
 ```
@@ -93,7 +97,7 @@ mcp-conf tui
 
 Options:
 - Commands: `add`, `rm`, `ls`, `show`, `enable`, `disable`, `where`, `update`, `tui` (first argument)
-- `--client <name>` (repeatable): `cline`, `codex`, `claude`, `goose`, `cursor`, `windsurf`, `opencode` (`kilo` alias), `copilot`, `antigravity`, `crush`
+- `--client <name>` (repeatable): `cline`, `codex`, `claude`, `goose`, `cursor`, `windsurf`, `opencode` (`kilo` alias), `copilot`, `antigravity`, `qwen`, `crush`
 - `--env <name>`: use named env profile; writes `--env=<name>` (stdio only)
 - `--env-path <path>`: use a specific `.env` file (stdio only)
 - `--session-env`: use shell/session environment variables (stdio only)
@@ -116,7 +120,7 @@ Notes:
 - `mcp-conf tui` starts an interactive wizard for `ls`/`show`/`add`/`update`/`rm`/`enable`/`disable`.
 - Cursor/Copilot enable/disable are not implemented yet.
 - Antigravity enable/disable uses `disabled: true|false` on the entry.
-- Antigravity local scope is not supported yet; use `--global`.
+- Antigravity and Qwen are global-only; use `--global`.
 - Claude stores enable/disable state under `enabledMcpServers` and `disabledMcpServers` for each project.
 - Claude enable/disable always updates `~/.claude.json` (global scope), even if you pass `--local`.
 - Antigravity HTTP entries use `serverUrl` instead of `url`.
@@ -163,6 +167,8 @@ Global (default) locations:
 - **Antigravity**:
   - Linux/macOS: `~/.gemini/antigravity/mcp_config.json`
   - Note: path is community-reported; verify against latest vendor docs.
+- **Qwen**:
+  - Linux/macOS: `~/.qwen/settings.json` (uses `mcpServers.<name>`)
 - **Crush**:
   - Linux/macOS: `~/.config/crush/crush.json`
   - Windows: `%USERPROFILE%\AppData\Local\crush\crush.json`

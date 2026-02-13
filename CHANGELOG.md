@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-02-13
+### Added
+- Qwen client support (`--client qwen`) for `add`, `rm`, `ls`, `show`, `enable`, `disable`, `where`, and `update`.
+- TUI client list now includes Qwen.
+
+### Changed
+- Qwen config path uses `~/.qwen/settings.json` with `mcpServers.<name>` entries.
+- Help output now documents Qwen across command-specific `--client` lists.
+- Antigravity/Qwen notes clarified as global-only scope.
+- Documentation updated with Qwen usage examples and config location.
+
 ## [0.0.13] - 2026-02-13
 ### Changed
 - `--env` now works as a named stdio auth source (same flow as `--mcp`) and writes `--env=<name>` to saved server args.

@@ -15,6 +15,7 @@ const CLIENTS = [
   { name: "opencode", message: "OpenCode (kilo)" },
   { name: "copilot", message: "GitHub Copilot" },
   { name: "antigravity", message: "Antigravity" },
+  { name: "qwen", message: "Qwen" },
   { name: "crush", message: "Crush" },
 ];
 
@@ -265,7 +266,7 @@ function getSupportedScopes(clientName) {
   if (clientName === "copilot") {
     return ["local"];
   }
-  if (["cline", "goose", "windsurf", "antigravity"].includes(clientName)) {
+  if (["cline", "goose", "windsurf", "antigravity", "qwen"].includes(clientName)) {
     return ["global"];
   }
   return ["global", "local"];

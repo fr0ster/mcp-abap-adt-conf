@@ -20,6 +20,7 @@ mcp-conf --client codex --name abap-http --transport http --url http://localhost
 mcp-conf --client opencode --name abap --transport http --url http://localhost:3000/mcp/stream/http
 mcp-conf --client kilo --name abap --transport http --url http://localhost:3000/mcp/stream/http
 mcp-conf --client copilot --name abap --transport http --url http://localhost:3000/mcp/stream/http --header x-mcp-destination=trial
+mcp-conf --client qwen --name abap --transport http --url http://localhost:3000/mcp/stream/http
 mcp-conf --client crush --name abap --mcp TRIAL
 mcp-conf --client crush --name abap --transport http --url http://localhost:3000/mcp/stream/http
 mcp-conf tui
