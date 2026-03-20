@@ -16,6 +16,7 @@ const CLIENTS = [
   { name: "copilot", message: "GitHub Copilot" },
   { name: "antigravity", message: "Antigravity" },
   { name: "qwen", message: "Qwen" },
+  { name: "gemini", message: "Gemini" },
   { name: "crush", message: "Crush" },
 ];
 
@@ -263,7 +264,7 @@ async function askHeaders(initialHeaders = {}) {
 }
 
 function getSupportedScopes(clientName) {
-  if (clientName === "copilot") {
+  if (clientName === "copilot" || clientName === "gemini") {
     return ["local"];
   }
   if (["cline", "goose", "windsurf", "antigravity", "qwen"].includes(clientName)) {

@@ -431,6 +431,18 @@ for (const client of options.clients) {
         writeJsonConfig(getQwenPath(home), options.name, serverArgs, "qwen");
       }
       break;
+    case "gemini":
+      requireScope("Gemini", ["local"], scope);
+      if (options.list) {
+        listJsonConfig(getGeminiPath(), "gemini");
+      } else if (options.show) {
+        showJsonConfig(getGeminiPath(), "gemini", options.name);
+      } else if (options.where) {
+        whereJsonConfig(getGeminiPath(), "gemini", options.name);
+      } else {
+        writeJsonConfig(getGeminiPath(), options.name, serverArgs, "gemini");
+      }
+      break;
     case "copilot":
       requireScope("GitHub Copilot", ["local"], scope);
       if (options.list) {
@@ -627,6 +639,10 @@ function getAntigravityPath(homeDir, scopeValue) {
   return path.join(homeDir, ".gemini", "antigravity", "mcp_config.json");
 }
 
+function getGeminiPath() {
+  return path.join(process.cwd(), ".gemini", "settings.json");
+}
+
 function getQwenPath(homeDir) {
   return path.join(homeDir, ".qwen", "settings.json");
 }
@@ -658,7 +674,7 @@ function requireScope(clientLabel, allowedScopes, requestedScope) {
 }
 
 function getDefaultScope(clientType) {
-  if (clientType === "copilot") {
+  if (clientType === "copilot" || clientType === "gemini") {
     return "local";
   }
   return "global";
@@ -1788,9 +1804,10 @@ Run:
   mcp-conf help <command>
 
 Notes:
-  Scope defaults to --global (Copilot uses --local only).
+  Scope defaults to --global (Copilot and Gemini use --local only).
   For Claude, --local maps to the project scope file ./.mcp.json.
   For Codex, --local writes to ./.codex/config.toml.
+  For Gemini, --local writes to ./.gemini/settings.json.
 `);
     return;
   }
@@ -1802,7 +1819,7 @@ Usage:
   mcp-conf add --client <name> --name <serverName> [--env <name> | --env-path <path> | --session-env | --mcp <dest>] [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | crush (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --name <serverName>   required MCP server name key
   --env <name>          env profile name (stdio only), writes --env=<name>
   --env-path <path>     .env path (stdio only)
@@ -1821,6 +1838,7 @@ Options:
 
 Notes:
   Antigravity and Qwen are global-only; use --global.
+  Gemini is local-only (project .gemini/settings.json); use --local.
 `);
       break;
     case "rm":
@@ -1830,7 +1848,7 @@ Usage:
   mcp-conf rm --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | crush (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -1840,6 +1858,7 @@ Options:
 
 Notes:
   Antigravity and Qwen are global-only; use --global.
+  Gemini is local-only (project .gemini/settings.json); use --local.
 `);
       break;
     case "ls":
@@ -1849,7 +1868,7 @@ Usage:
   mcp-conf ls --client <name> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | crush (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --global              write to global user config (default)
   --local               write to project config (where supported)
   --all-projects        Claude global: list across all projects
@@ -1857,6 +1876,7 @@ Options:
 
 Notes:
   Antigravity and Qwen are global-only; use --global.
+  Gemini is local-only (project .gemini/settings.json); use --local.
 `);
       break;
     case "enable":
@@ -1866,7 +1886,7 @@ Usage:
   mcp-conf enable --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | crush (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -1876,6 +1896,7 @@ Options:
 
 Notes:
   Antigravity and Qwen are global-only; use --global.
+  Gemini is local-only (project .gemini/settings.json); use --local.
 `);
       break;
     case "disable":
@@ -1885,7 +1906,7 @@ Usage:
   mcp-conf disable --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | crush (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -1895,6 +1916,7 @@ Options:
 
 Notes:
   Antigravity and Qwen are global-only; use --global.
+  Gemini is local-only (project .gemini/settings.json); use --local.
 `);
       break;
     case "where":
@@ -1904,7 +1926,7 @@ Usage:
   mcp-conf where --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | crush (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -1913,6 +1935,7 @@ Options:
 
 Notes:
   Antigravity and Qwen are global-only; use --global.
+  Gemini is local-only (project .gemini/settings.json); use --local.
 `);
       break;
     case "show":
@@ -1922,7 +1945,7 @@ Usage:
   mcp-conf show --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | crush (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              read from global user config (default)
   --local               read from project config (where supported)
@@ -1933,6 +1956,7 @@ Options:
 
 Notes:
   Antigravity and Qwen are global-only; use --global.
+  Gemini is local-only (project .gemini/settings.json); use --local.
 `);
       break;
     case "update":
@@ -1942,7 +1966,7 @@ Usage:
   mcp-conf update --client <name> --name <serverName> [--env <name> | --env-path <path> | --session-env | --mcp <dest>] [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | crush (repeatable)
+  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --name <serverName>   required MCP server name key
   --env <name>          env profile name (stdio only), writes --env=<name>
   --env-path <path>     .env path (stdio only)
@@ -1959,6 +1983,7 @@ Options:
 
 Notes:
   Antigravity and Qwen are global-only; use --global.
+  Gemini is local-only (project .gemini/settings.json); use --local.
 `);
       break;
     case "tui":

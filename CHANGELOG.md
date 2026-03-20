@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-03-20
+### Added
+- Gemini CLI client support (`--client gemini`) for `add`, `rm`, `ls`, `show`, `enable`, `disable`, `where`, and `update`.
+- TUI client list now includes Gemini.
+
+### Changed
+- Gemini is local-only; config path is `.gemini/settings.json` with `mcpServers.<name>` entries.
+- Help output now documents Gemini across command-specific `--client` lists.
+- Documentation updated with Gemini usage examples and config location.
+
 ## [0.1.1] - 2026-02-13
 ### Added
 - Qwen client support (`--client qwen`) for `add`, `rm`, `ls`, `show`, `enable`, `disable`, `where`, and `update`.
