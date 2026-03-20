@@ -434,7 +434,7 @@ for (const client of options.clients) {
     case "gemini":
       requireScope("Gemini", ["local"], scope);
       if (options.list) {
-        listJsonConfig(getGeminiPath(), "gemini");
+        listGeminiConfig(getGeminiPath(), getGeminiEnablementPath(home));
       } else if (options.show) {
         showJsonConfig(getGeminiPath(), "gemini", options.name);
       } else if (options.where) {
@@ -1266,6 +1266,23 @@ function listJsonConfig(filePath, clientType) {
     store = data.mcpServers || {};
   }
   outputList(filePath, Object.keys(store));
+}
+
+function listGeminiConfig(filePath, enablementPath) {
+  const data = readJson(filePath);
+  const store = data.mcpServers || {};
+  const enablement = readJson(enablementPath);
+  const keys = Object.keys(store);
+  const header = `# ${filePath}`;
+  process.stdout.write(`${header}\n`);
+  if (!keys.length) {
+    process.stdout.write("- (none)\n");
+    return;
+  }
+  for (const name of keys.sort()) {
+    const status = enablement[name]?.enabled === false ? " (disabled)" : "";
+    process.stdout.write(`- ${name}${status}\n`);
+  }
 }
 
 function listCodexConfig(filePath) {

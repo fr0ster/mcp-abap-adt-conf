@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-03-20
+### Added
+- Gemini `ls` now shows `(disabled)` status by reading `~/.gemini/mcp-server-enablement.json`.
+
 ## [0.2.1] - 2026-03-20
 ### Fixed
 - Gemini enable/disable now writes to `~/.gemini/mcp-server-enablement.json` (matching Gemini CLI behavior) instead of unsupported `disabled` field on server entries.
