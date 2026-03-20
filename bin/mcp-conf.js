@@ -643,6 +643,10 @@ function getGeminiPath() {
   return path.join(process.cwd(), ".gemini", "settings.json");
 }
 
+function getGeminiEnablementPath(homeDir) {
+  return path.join(homeDir, ".gemini", "mcp-server-enablement.json");
+}
+
 function getQwenPath(homeDir) {
   return path.join(homeDir, ".qwen", "settings.json");
 }
@@ -729,9 +733,20 @@ function writeJsonConfig(filePath, serverName, argsArray, clientType) {
   }
   if (options.toggle) {
     if (clientType === "cursor" || clientType === "copilot") {
-      fail(
-        `${clientType === "cursor" ? "Cursor" : "GitHub Copilot"} enable/disable is not implemented yet.`,
-      );
+      const label = clientType === "cursor" ? "Cursor" : "GitHub Copilot";
+      fail(`${label} enable/disable is not implemented yet.`);
+    }
+    if (clientType === "gemini") {
+      const store = data.mcpServers || {};
+      if (!store[serverName]) {
+        fail(`Server "${serverName}" not found in ${filePath}.`);
+      }
+      const enablementPath = getGeminiEnablementPath(home);
+      ensureDir(enablementPath);
+      const enablementData = readJson(enablementPath);
+      enablementData[serverName] = { enabled: !options.disabled };
+      writeFile(enablementPath, JSON.stringify(enablementData, null, 2));
+      return;
     }
     const store =
       clientType === "opencode" || clientType === "crush"
@@ -855,6 +870,24 @@ function writeJsonConfig(filePath, serverName, argsArray, clientType) {
         serverUrl: options.url,
         timeout: options.timeout,
         disabled: !!options.disabled,
+      };
+      if (Object.keys(options.headers).length > 0) {
+        entry.headers = options.headers;
+      }
+      store[serverName] = entry;
+    }
+    writeFile(filePath, JSON.stringify(data, null, 2));
+    return;
+  }
+  if (clientType === "gemini") {
+    if (options.transport === "stdio") {
+      store[serverName] = {
+        command: options.command,
+        args: argsArray,
+      };
+    } else {
+      const entry = {
+        httpUrl: options.url,
       };
       if (Object.keys(options.headers).length > 0) {
         entry.headers = options.headers;
@@ -1617,6 +1650,11 @@ function inferTransport(clientType, entry, parsedArgs) {
   if (clientType === "antigravity") {
     return entry?.type === "http" ? "http" : "stdio";
   }
+  if (clientType === "gemini") {
+    if (entry?.httpUrl) return "http";
+    if (entry?.url) return "sse";
+    return "stdio";
+  }
   if (clientType === "crush") {
     if (entry?.type === "http") return "http";
     if (entry?.type === "sse") return "sse";
@@ -1644,6 +1682,9 @@ function inferUrl(clientType, entry) {
   }
   if (clientType === "antigravity") {
     return entry?.serverUrl || null;
+  }
+  if (clientType === "gemini") {
+    return entry?.httpUrl || entry?.url || null;
   }
   return entry?.url || null;
 }

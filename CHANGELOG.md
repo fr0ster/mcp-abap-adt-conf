@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-03-20
+### Fixed
+- Gemini enable/disable now writes to `~/.gemini/mcp-server-enablement.json` (matching Gemini CLI behavior) instead of unsupported `disabled` field on server entries.
+- Gemini HTTP entries now use `httpUrl` instead of `url` to match Gemini CLI format.
+- Gemini add no longer writes `disabled`, `timeout`, or `type` fields that Gemini CLI does not recognize.
+
 ## [0.2.0] - 2026-03-20
 ### Added
 - Gemini CLI client support (`--client gemini`) for `add`, `rm`, `ls`, `show`, `enable`, `disable`, `where`, and `update`.
