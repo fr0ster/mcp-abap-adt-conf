@@ -1,4 +1,5 @@
 # MCP ABAP ADT Configurator
+[![Stand With Ukraine](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/badges/StandWithUkraine.svg)](https://stand-with-ukraine.pp.ua)
 
 Auto-configure MCP clients for `mcp-abap-adt` and `mcp-abap-adt-proxy`.
 
