@@ -69,6 +69,12 @@ The existing validator list (`bin/mcp-conf.js:716`) gains `claude-cli` and `clau
 
 No `type` field (Claude Desktop infers stdio). No `url`/`headers`/`transport` keys.
 
+**Implementation boundary:**
+
+- `claude-desktop` uses its own helpers and must not reuse the existing Claude project-aware helpers.
+- Detection must be by normalized client id, not by config filename suffix.
+- In particular, `claude_desktop_config.json` is treated as a flat Desktop config only, never as a Claude Code project config with `projects[...]`.
+
 **Enable/disable:**
 
 Claude Desktop's config has no `disabled` flag. The configurator uses the same convention already used for other clients in this repo: move the entry between `mcpServers` and a sibling `_disabled` object.
@@ -76,6 +82,9 @@ Claude Desktop's config has no `disabled` flag. The configurator uses the same c
 - `disable` → move `mcpServers[name]` into `_disabled[name]`.
 - `enable` → move `_disabled[name]` back into `mcpServers[name]`.
 - `ls` reports disabled entries as such.
+- `show` and `where` search both `mcpServers` and `_disabled`.
+- `rm` removes the entry from whichever bucket it is currently in.
+- `update` searches both buckets; if the entry is currently disabled, it stays in `_disabled` after update.
 
 Claude Desktop ignores `_disabled` (unknown key), so a disabled server is effectively removed from Desktop until re-enabled.
 
@@ -107,10 +116,11 @@ Read-only commands (`ls`, `show`, `where`) do not print it.
   - `getClaudePath()` (line 599): no change; still serves `claude-cli`.
   - New `getClaudeDesktopPath(platform, home, appData)`.
   - New `writeClaudeDesktopConfig`, `removeClaudeDesktopConfig`, `listClaudeDesktopConfig`, `showClaudeDesktopConfig`, `whereClaudeDesktopConfig`, `toggleClaudeDesktopConfig` (enable/disable). These mirror existing helpers but target the flat `claude_desktop_config.json` shape (no `projects` nesting, no scope branching).
+  - Do not route `claude-desktop` through existing Claude helpers that currently infer behavior from `.claude.json` / `claude_desktop_config.json` filename suffixes.
   - Add restart-notice print at the end of each mutation path for `claude-desktop`.
   - Update `claude-cli` paths in all case branches that currently match `"claude"`.
   - Help text strings in `mcp-conf.js` and `mcp-conf-tui.js` updated accordingly.
-- `bin/mcp-conf-tui.js`: add `claude-desktop` to the client picker; hide transport options other than stdio when it is selected; hide scope picker (force global).
+- `bin/mcp-conf-tui.js`: add `claude-desktop` to the client picker; rename the primary `claude` picker label to `Claude CLI`; add a distinct `Claude Desktop` label for `claude-desktop`; hide transport options other than stdio when `claude-desktop` is selected; hide scope picker for `claude-desktop` (force global); keep the current Claude project/global UX only for `claude-cli`.
 - `README.md`: add the Claude distinction note.
 - `CHANGELOG.md`: new `0.3.0` section.
 - `package.json`: bump to `0.3.0`.
