@@ -974,8 +974,7 @@ function writeJsonConfig(filePath, serverName, argsArray, clientType) {
 function writeClaudeConfig(filePath, serverName, argsArray) {
   ensureDir(filePath);
   const data = readJson(filePath);
-  const isDesktopConfig =
-    filePath.endsWith(".claude.json") || filePath.endsWith("claude_desktop_config.json");
+  const isDesktopConfig = filePath.endsWith(".claude.json");
   const resolveProjectKey = () => resolveProjectSelector(data, options.projectPath);
   const updateClaudeMcpLists = (projectNode) => {
     projectNode.enabledMcpServers = projectNode.enabledMcpServers || [];
@@ -1466,8 +1465,7 @@ function listGooseConfig(filePath) {
 
 function listClaudeConfig(filePath, allProjects, projectPath) {
   const data = readJson(filePath);
-  const isDesktopConfig =
-    filePath.endsWith(".claude.json") || filePath.endsWith("claude_desktop_config.json");
+  const isDesktopConfig = filePath.endsWith(".claude.json");
   if (isDesktopConfig) {
     const projects = Object.keys(data.projects || {});
     if (allProjects) {
@@ -1533,8 +1531,7 @@ function whereGooseConfig(filePath, serverName) {
 
 function whereClaudeConfig(filePath, serverName, allProjects, projectPath) {
   const data = readJson(filePath);
-  const isDesktopConfig =
-    filePath.endsWith(".claude.json") || filePath.endsWith("claude_desktop_config.json");
+  const isDesktopConfig = filePath.endsWith(".claude.json");
   if (isDesktopConfig) {
     const projects = Object.keys(data.projects || {});
     if (allProjects) {
@@ -1622,8 +1619,7 @@ function showGooseConfig(filePath, serverName) {
 
 function showClaudeConfig(filePath, serverName, allProjects, projectPath) {
   const data = readJson(filePath);
-  const isDesktopConfig =
-    filePath.endsWith(".claude.json") || filePath.endsWith("claude_desktop_config.json");
+  const isDesktopConfig = filePath.endsWith(".claude.json");
   if (isDesktopConfig) {
     const projects = Object.keys(data.projects || {});
     if (allProjects) {

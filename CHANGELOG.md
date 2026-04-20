@@ -2,7 +2,10 @@
 
 ## [Unreleased]
 
-## [0.3.0] - 2026-04-20
+## [1.0.0] - 2026-04-20
+
+First stable release. The public surface (CLI flags, client ids, config file formats) is now considered stable; breaking changes will bump the major version.
+
 ### Added
 - `--client claude-desktop` — Claude Desktop GUI config support (macOS, Windows) for `add`, `rm`, `ls`, `show`, `enable`, `disable`, `where`, and `update`. Writes stdio entries to `claude_desktop_config.json`. Prints a restart reminder after every mutation.
 - README: "Claude: CLI vs Desktop vs Connectors" note clarifying which Claude product `mcp-conf` targets.
