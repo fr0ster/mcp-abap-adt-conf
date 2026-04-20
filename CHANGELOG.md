@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-20
+### Added
+- `--client claude-desktop` — Claude Desktop GUI config support (macOS, Windows) for `add`, `rm`, `ls`, `show`, `enable`, `disable`, `where`, and `update`. Writes stdio entries to `claude_desktop_config.json`. Prints a restart reminder after every mutation.
+- README: "Claude: CLI vs Desktop vs Connectors" note clarifying which Claude product `mcp-conf` targets.
+
+### Changed
+- `--client claude` is now a permanent alias for `--client claude-cli`. The canonical id in help text is `claude-cli`; existing scripts using `claude` continue to work.
+- TUI client picker: entry "Claude" renamed to "Claude CLI"; new entry "Claude Desktop" added.
+
+### Notes
+- Claude Desktop does **not** support remote MCP (HTTP/SSE) in `claude_desktop_config.json`; remote Custom Connectors must be added through Claude Desktop's Settings → Connectors UI. There is no public API for this, so `mcp-conf` cannot automate it.
+- Claude Desktop is not officially available on Linux; `--client claude-desktop` fails with a clear error there.
+
 ## [0.2.2] - 2026-03-20
 ### Added
 - Gemini `ls` now shows `(disabled)` status by reading `~/.gemini/mcp-server-enablement.json`.

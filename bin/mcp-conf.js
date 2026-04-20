@@ -2026,6 +2026,9 @@ Notes:
   For Claude, --local maps to the project scope file ./.mcp.json.
   For Codex, --local writes to ./.codex/config.toml.
   For Gemini, --local writes to ./.gemini/settings.json.
+
+Aliases:
+  claude   → claude-cli (Claude Code CLI)
 `);
     return;
   }
@@ -2037,7 +2040,7 @@ Usage:
   mcp-conf add --client <name> --name <serverName> [--env <name> | --env-path <path> | --session-env | --mcp <dest>] [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
+  --client <name>       cline | codex | claude-cli | claude-desktop | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --name <serverName>   required MCP server name key
   --env <name>          env profile name (stdio only), writes --env=<name>
   --env-path <path>     .env path (stdio only)
@@ -2066,7 +2069,7 @@ Usage:
   mcp-conf rm --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
+  --client <name>       cline | codex | claude-cli | claude-desktop | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -2086,7 +2089,7 @@ Usage:
   mcp-conf ls --client <name> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
+  --client <name>       cline | codex | claude-cli | claude-desktop | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --global              write to global user config (default)
   --local               write to project config (where supported)
   --all-projects        Claude global: list across all projects
@@ -2104,7 +2107,7 @@ Usage:
   mcp-conf enable --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
+  --client <name>       cline | codex | claude-cli | claude-desktop | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -2124,7 +2127,7 @@ Usage:
   mcp-conf disable --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
+  --client <name>       cline | codex | claude-cli | claude-desktop | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -2144,7 +2147,7 @@ Usage:
   mcp-conf where --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
+  --client <name>       cline | codex | claude-cli | claude-desktop | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -2163,7 +2166,7 @@ Usage:
   mcp-conf show --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
+  --client <name>       cline | codex | claude-cli | claude-desktop | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              read from global user config (default)
   --local               read from project config (where supported)
@@ -2184,7 +2187,7 @@ Usage:
   mcp-conf update --client <name> --name <serverName> [--env <name> | --env-path <path> | --session-env | --mcp <dest>] [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
+  --client <name>       cline | codex | claude-cli | claude-desktop | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --name <serverName>   required MCP server name key
   --env <name>          env profile name (stdio only), writes --env=<name>
   --env-path <path>     .env path (stdio only)
