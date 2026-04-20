@@ -386,11 +386,11 @@ for (const client of options.clients) {
       }
       const cdPath = getClaudeDesktopPath(platform, home, appData);
       if (options.list) {
-        fail("ls for claude-desktop not implemented yet.");
+        listClaudeDesktopConfig(cdPath);
       } else if (options.show) {
-        fail("show for claude-desktop not implemented yet.");
+        showClaudeDesktopConfig(cdPath, options.name);
       } else if (options.where) {
-        fail("where for claude-desktop not implemented yet.");
+        whereClaudeDesktopConfig(cdPath, options.name);
       } else if (options.remove) {
         removeClaudeDesktopConfig(cdPath, options.name);
         printClaudeDesktopRestartNotice();
@@ -1226,6 +1226,45 @@ function toggleClaudeDesktopConfig(filePath, serverName, shouldDisable) {
     delete data._disabled[serverName];
   }
   writeFile(filePath, JSON.stringify(data, null, 2));
+}
+
+function listClaudeDesktopConfig(filePath) {
+  const data = readJson(filePath);
+  const enabled = Object.keys(data.mcpServers || {});
+  const disabled = Object.keys(data._disabled || {});
+  if (enabled.length === 0 && disabled.length === 0) {
+    process.stdout.write(`(no MCP servers configured in ${filePath})\n`);
+    return;
+  }
+  for (const name of enabled.sort()) {
+    process.stdout.write(`${name}\n`);
+  }
+  for (const name of disabled.sort()) {
+    process.stdout.write(`${name} (disabled)\n`);
+  }
+}
+
+function showClaudeDesktopConfig(filePath, serverName) {
+  const data = readJson(filePath);
+  const entry = data.mcpServers?.[serverName] || data._disabled?.[serverName];
+  if (!entry) {
+    fail(`Server "${serverName}" not found in ${filePath}.`);
+  }
+  const isDisabled = Boolean(data._disabled?.[serverName]);
+  const output = {
+    name: serverName,
+    disabled: isDisabled,
+    ...entry,
+  };
+  process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
+}
+
+function whereClaudeDesktopConfig(filePath, serverName) {
+  const data = readJson(filePath);
+  if (!data.mcpServers?.[serverName] && !data._disabled?.[serverName]) {
+    fail(`Server "${serverName}" not found in ${filePath}.`);
+  }
+  process.stdout.write(`${filePath}\n`);
 }
 
 function printClaudeDesktopRestartNotice() {
