@@ -374,6 +374,33 @@ for (const client of options.clients) {
       }
       break;
     }
+    case "claude-desktop": {
+      requireScope("ClaudeDesktop", ["global"], scope);
+      if (options.transport !== "stdio") {
+        fail(
+          "claude-desktop only supports stdio transport. For remote MCP, add a Custom Connector in Claude Desktop Settings → Connectors.",
+        );
+      }
+      if (options.allProjects || options.projectPath) {
+        fail("--all-projects and --project are not supported for claude-desktop.");
+      }
+      const cdPath = getClaudeDesktopPath(platform, home, appData);
+      if (options.list) {
+        fail("ls for claude-desktop not implemented yet.");
+      } else if (options.show) {
+        fail("show for claude-desktop not implemented yet.");
+      } else if (options.where) {
+        fail("where for claude-desktop not implemented yet.");
+      } else if (options.remove) {
+        fail("rm for claude-desktop not implemented yet.");
+      } else if (options.toggle) {
+        fail("enable/disable for claude-desktop not implemented yet.");
+      } else {
+        writeClaudeDesktopConfig(cdPath, options.name, serverArgs);
+        printClaudeDesktopRestartNotice();
+      }
+      break;
+    }
     case "goose":
       requireScope("Goose", ["global"], scope);
       if (options.list) {
@@ -609,7 +636,6 @@ function getClaudePath(homeDir, scopeValue) {
   return path.join(homeDir, ".claude.json");
 }
 
-// biome-ignore lint/correctness/noUnusedVariables: wired up by later tasks
 function getClaudeDesktopPath(platformValue, homeDir, appDataDir) {
   if (platformValue === "darwin") {
     return path.join(
@@ -1132,6 +1158,35 @@ function writeClaudeConfig(filePath, serverName, argsArray) {
     }
   }
   writeFile(filePath, JSON.stringify(data, null, 2));
+}
+
+function writeClaudeDesktopConfig(filePath, serverName, argsArray) {
+  ensureDir(filePath);
+  const data = readJson(filePath);
+  data.mcpServers = data.mcpServers || {};
+  data._disabled = data._disabled || {};
+  const exists = data.mcpServers[serverName] || data._disabled[serverName];
+  if (exists && !options.force) {
+    fail(`Server "${serverName}" already exists in ${filePath}. Use --force to overwrite.`);
+  }
+  const entry = {
+    command: options.command,
+    args: argsArray,
+    timeout: options.timeout,
+    env: {},
+  };
+  if (data._disabled[serverName]) {
+    // Preserve disabled state on update.
+    data._disabled[serverName] = entry;
+  } else {
+    data.mcpServers[serverName] = entry;
+    delete data._disabled[serverName];
+  }
+  writeFile(filePath, JSON.stringify(data, null, 2));
+}
+
+function printClaudeDesktopRestartNotice() {
+  console.log("Note: Restart Claude Desktop for changes to take effect.");
 }
 
 function resolveClaudeProjectKey(data, projectPath = process.cwd()) {
