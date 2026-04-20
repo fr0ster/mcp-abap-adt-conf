@@ -392,7 +392,8 @@ for (const client of options.clients) {
       } else if (options.where) {
         fail("where for claude-desktop not implemented yet.");
       } else if (options.remove) {
-        fail("rm for claude-desktop not implemented yet.");
+        removeClaudeDesktopConfig(cdPath, options.name);
+        printClaudeDesktopRestartNotice();
       } else if (options.toggle) {
         fail("enable/disable for claude-desktop not implemented yet.");
       } else {
@@ -1180,6 +1181,22 @@ function writeClaudeDesktopConfig(filePath, serverName, argsArray) {
     data._disabled[serverName] = entry;
   } else {
     data.mcpServers[serverName] = entry;
+  }
+  writeFile(filePath, JSON.stringify(data, null, 2));
+}
+
+function removeClaudeDesktopConfig(filePath, serverName) {
+  const data = readJson(filePath);
+  const inEnabled = data.mcpServers?.[serverName];
+  const inDisabled = data._disabled?.[serverName];
+  if (!inEnabled && !inDisabled) {
+    fail(`Server "${serverName}" not found in ${filePath}.`);
+  }
+  if (inEnabled) {
+    delete data.mcpServers[serverName];
+  }
+  if (inDisabled) {
+    delete data._disabled[serverName];
   }
   writeFile(filePath, JSON.stringify(data, null, 2));
 }
