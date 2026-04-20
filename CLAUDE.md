@@ -42,3 +42,7 @@ Enforced by Biome (`biome.json`): 2-space indent, 100-char line width, double qu
 - Conventional Commits: `feat:`, `fix:`, `chore:`, `docs:` prefixes
 - Update `CHANGELOG.md` when behavior changes
 - Do not commit generated client config files or `.env` files
+
+## Plans and Specs
+
+After a plan under `docs/superpowers/plans/` or spec under `docs/superpowers/specs/` has been fully implemented, delete the file. Keep only active (not yet implemented) plans and specs in the tree — implementation history lives in git, not in these directories.
