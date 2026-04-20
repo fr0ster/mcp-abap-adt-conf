@@ -1180,13 +1180,12 @@ function writeClaudeDesktopConfig(filePath, serverName, argsArray) {
     data._disabled[serverName] = entry;
   } else {
     data.mcpServers[serverName] = entry;
-    delete data._disabled[serverName];
   }
   writeFile(filePath, JSON.stringify(data, null, 2));
 }
 
 function printClaudeDesktopRestartNotice() {
-  console.log("Note: Restart Claude Desktop for changes to take effect.");
+  process.stdout.write("Note: Restart Claude Desktop for changes to take effect.\n");
 }
 
 function resolveClaudeProjectKey(data, projectPath = process.cwd()) {
