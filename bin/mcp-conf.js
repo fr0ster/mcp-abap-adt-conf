@@ -395,7 +395,8 @@ for (const client of options.clients) {
         removeClaudeDesktopConfig(cdPath, options.name);
         printClaudeDesktopRestartNotice();
       } else if (options.toggle) {
-        fail("enable/disable for claude-desktop not implemented yet.");
+        toggleClaudeDesktopConfig(cdPath, options.name, options.disabled);
+        printClaudeDesktopRestartNotice();
       } else {
         writeClaudeDesktopConfig(cdPath, options.name, serverArgs);
         printClaudeDesktopRestartNotice();
@@ -1196,6 +1197,32 @@ function removeClaudeDesktopConfig(filePath, serverName) {
     delete data.mcpServers[serverName];
   }
   if (inDisabled) {
+    delete data._disabled[serverName];
+  }
+  writeFile(filePath, JSON.stringify(data, null, 2));
+}
+
+function toggleClaudeDesktopConfig(filePath, serverName, shouldDisable) {
+  const data = readJson(filePath);
+  data.mcpServers = data.mcpServers || {};
+  data._disabled = data._disabled || {};
+  if (shouldDisable) {
+    if (data._disabled[serverName]) {
+      fail(`Server "${serverName}" is already disabled in ${filePath}.`);
+    }
+    if (!data.mcpServers[serverName]) {
+      fail(`Server "${serverName}" not found in ${filePath}.`);
+    }
+    data._disabled[serverName] = data.mcpServers[serverName];
+    delete data.mcpServers[serverName];
+  } else {
+    if (data.mcpServers[serverName]) {
+      fail(`Server "${serverName}" is already enabled in ${filePath}.`);
+    }
+    if (!data._disabled[serverName]) {
+      fail(`Server "${serverName}" not found in ${filePath}.`);
+    }
+    data.mcpServers[serverName] = data._disabled[serverName];
     delete data._disabled[serverName];
   }
   writeFile(filePath, JSON.stringify(data, null, 2));
