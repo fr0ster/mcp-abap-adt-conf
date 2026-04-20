@@ -1232,15 +1232,17 @@ function listClaudeDesktopConfig(filePath) {
   const data = readJson(filePath);
   const enabled = Object.keys(data.mcpServers || {});
   const disabled = Object.keys(data._disabled || {});
+  const header = `# ${filePath}`;
+  process.stdout.write(`${header}\n`);
   if (enabled.length === 0 && disabled.length === 0) {
-    process.stdout.write(`(no MCP servers configured in ${filePath})\n`);
+    process.stdout.write("- (none)\n");
     return;
   }
   for (const name of enabled.sort()) {
-    process.stdout.write(`${name}\n`);
+    process.stdout.write(`- ${name}\n`);
   }
   for (const name of disabled.sort()) {
-    process.stdout.write(`${name} (disabled)\n`);
+    process.stdout.write(`- ${name} (disabled)\n`);
   }
 }
 
@@ -1250,21 +1252,20 @@ function showClaudeDesktopConfig(filePath, serverName) {
   if (!entry) {
     fail(`Server "${serverName}" not found in ${filePath}.`);
   }
-  const isDisabled = Boolean(data._disabled?.[serverName]);
-  const output = {
-    name: serverName,
-    disabled: isDisabled,
-    ...entry,
-  };
-  process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
+  const details = normalizeServerDetails("claude-desktop", serverName, entry);
+  if (data._disabled?.[serverName]) {
+    details.disabled = true;
+  }
+  outputShow(filePath, serverName, details);
 }
 
 function whereClaudeDesktopConfig(filePath, serverName) {
   const data = readJson(filePath);
-  if (!data.mcpServers?.[serverName] && !data._disabled?.[serverName]) {
+  const found = Boolean(data.mcpServers?.[serverName] || data._disabled?.[serverName]);
+  if (!found) {
     fail(`Server "${serverName}" not found in ${filePath}.`);
   }
-  process.stdout.write(`${filePath}\n`);
+  outputWhere(filePath, serverName, found);
 }
 
 function printClaudeDesktopRestartNotice() {
