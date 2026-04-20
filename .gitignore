@@ -1,6 +1,7 @@
 node_modules/
 *.log
 .DS_Store
+.worktree/
 
 # Local LLM CLI folders (keep Copilot/.vscode tracked)
 .claude/
