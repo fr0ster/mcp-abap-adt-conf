@@ -299,7 +299,7 @@ const serverArgs = serverArgsRaw.filter(Boolean);
 
 for (const client of options.clients) {
   const scope = options.scope || getDefaultScope(client);
-  if (options.projectPath && client !== "claude") {
+  if (options.projectPath && client !== "claude-cli") {
     fail("--project is only supported for Claude.");
   }
   switch (client) {
@@ -334,7 +334,7 @@ for (const client of options.clients) {
         );
       }
       break;
-    case "claude": {
+    case "claude-cli": {
       requireScope("Claude", ["global", "local"], scope);
       const claudeToggleScope = options.toggle ? "global" : scope;
       if (options.allProjects && claudeToggleScope !== "global") {
@@ -371,6 +371,35 @@ for (const client of options.clients) {
         );
       } else {
         writeClaudeConfig(getClaudePath(home, claudeToggleScope), options.name, serverArgs);
+      }
+      break;
+    }
+    case "claude-desktop": {
+      requireScope("ClaudeDesktop", ["global"], scope);
+      if (options.transport !== "stdio") {
+        fail(
+          "claude-desktop only supports stdio transport. For remote MCP, add a Custom Connector in Claude Desktop Settings → Connectors.",
+        );
+      }
+      if (options.allProjects || options.projectPath) {
+        fail("--all-projects and --project are not supported for claude-desktop.");
+      }
+      const cdPath = getClaudeDesktopPath(platform, home, appData);
+      if (options.list) {
+        listClaudeDesktopConfig(cdPath);
+      } else if (options.show) {
+        showClaudeDesktopConfig(cdPath, options.name);
+      } else if (options.where) {
+        whereClaudeDesktopConfig(cdPath, options.name);
+      } else if (options.remove) {
+        removeClaudeDesktopConfig(cdPath, options.name);
+        printClaudeDesktopRestartNotice();
+      } else if (options.toggle) {
+        toggleClaudeDesktopConfig(cdPath, options.name, options.disabled);
+        printClaudeDesktopRestartNotice();
+      } else {
+        writeClaudeDesktopConfig(cdPath, options.name, serverArgs);
+        printClaudeDesktopRestartNotice();
       }
       break;
     }
@@ -516,7 +545,13 @@ function normalizeClientName(clientName) {
     return clientName;
   }
   const normalized = clientName.toLowerCase();
-  return normalized === "kilo" ? "opencode" : normalized;
+  if (normalized === "kilo") {
+    return "opencode";
+  }
+  if (normalized === "claude") {
+    return "claude-cli";
+  }
+  return normalized;
 }
 
 function runTuiWizard(opts) {
@@ -601,6 +636,22 @@ function getClaudePath(homeDir, scopeValue) {
     return path.join(process.cwd(), ".mcp.json");
   }
   return path.join(homeDir, ".claude.json");
+}
+
+function getClaudeDesktopPath(platformValue, homeDir, appDataDir) {
+  if (platformValue === "darwin") {
+    return path.join(
+      homeDir,
+      "Library",
+      "Application Support",
+      "Claude",
+      "claude_desktop_config.json",
+    );
+  }
+  if (platformValue === "win32") {
+    return path.join(appDataDir, "Claude", "claude_desktop_config.json");
+  }
+  fail("Claude Desktop is not officially available on Linux. Use --client claude-cli instead.");
 }
 
 function getGoosePath(platformValue, homeDir, appDataDir) {
@@ -713,7 +764,7 @@ function resolveProjectSelector(data, projectPath) {
 }
 
 function getDefaultDisabled(clientType) {
-  return ["cline", "codex", "windsurf", "goose", "claude", "opencode", "crush"].includes(
+  return ["cline", "codex", "windsurf", "goose", "claude-cli", "opencode", "crush"].includes(
     clientType,
   );
 }
@@ -947,7 +998,7 @@ function writeClaudeConfig(filePath, serverName, argsArray) {
     const disabled = projectNode.disabledMcpServers;
     const shouldDisable = options.toggle
       ? options.disabled
-      : options.disabled || getDefaultDisabled("claude");
+      : options.disabled || getDefaultDisabled("claude-cli");
     const removeFrom = (list) => {
       const idx = list.indexOf(serverName);
       if (idx >= 0) {
@@ -1109,6 +1160,116 @@ function writeClaudeConfig(filePath, serverName, argsArray) {
     }
   }
   writeFile(filePath, JSON.stringify(data, null, 2));
+}
+
+function writeClaudeDesktopConfig(filePath, serverName, argsArray) {
+  ensureDir(filePath);
+  const data = readJson(filePath);
+  data.mcpServers = data.mcpServers || {};
+  data._disabled = data._disabled || {};
+  const exists = data.mcpServers[serverName] || data._disabled[serverName];
+  if (exists && !options.force) {
+    fail(`Server "${serverName}" already exists in ${filePath}. Use --force to overwrite.`);
+  }
+  const entry = {
+    command: options.command,
+    args: argsArray,
+    timeout: options.timeout,
+    env: {},
+  };
+  if (data._disabled[serverName]) {
+    // Preserve disabled state on update.
+    data._disabled[serverName] = entry;
+  } else {
+    data.mcpServers[serverName] = entry;
+  }
+  writeFile(filePath, JSON.stringify(data, null, 2));
+}
+
+function removeClaudeDesktopConfig(filePath, serverName) {
+  const data = readJson(filePath);
+  const inEnabled = data.mcpServers?.[serverName];
+  const inDisabled = data._disabled?.[serverName];
+  if (!inEnabled && !inDisabled) {
+    fail(`Server "${serverName}" not found in ${filePath}.`);
+  }
+  if (inEnabled) {
+    delete data.mcpServers[serverName];
+  }
+  if (inDisabled) {
+    delete data._disabled[serverName];
+  }
+  writeFile(filePath, JSON.stringify(data, null, 2));
+}
+
+function toggleClaudeDesktopConfig(filePath, serverName, shouldDisable) {
+  const data = readJson(filePath);
+  data.mcpServers = data.mcpServers || {};
+  data._disabled = data._disabled || {};
+  if (shouldDisable) {
+    if (data._disabled[serverName]) {
+      fail(`Server "${serverName}" is already disabled in ${filePath}.`);
+    }
+    if (!data.mcpServers[serverName]) {
+      fail(`Server "${serverName}" not found in ${filePath}.`);
+    }
+    data._disabled[serverName] = data.mcpServers[serverName];
+    delete data.mcpServers[serverName];
+  } else {
+    if (data.mcpServers[serverName]) {
+      fail(`Server "${serverName}" is already enabled in ${filePath}.`);
+    }
+    if (!data._disabled[serverName]) {
+      fail(`Server "${serverName}" not found in ${filePath}.`);
+    }
+    data.mcpServers[serverName] = data._disabled[serverName];
+    delete data._disabled[serverName];
+  }
+  writeFile(filePath, JSON.stringify(data, null, 2));
+}
+
+function listClaudeDesktopConfig(filePath) {
+  const data = readJson(filePath);
+  const enabled = Object.keys(data.mcpServers || {});
+  const disabled = Object.keys(data._disabled || {});
+  const header = `# ${filePath}`;
+  process.stdout.write(`${header}\n`);
+  if (enabled.length === 0 && disabled.length === 0) {
+    process.stdout.write("- (none)\n");
+    return;
+  }
+  for (const name of enabled.sort()) {
+    process.stdout.write(`- ${name}\n`);
+  }
+  for (const name of disabled.sort()) {
+    process.stdout.write(`- ${name} (disabled)\n`);
+  }
+}
+
+function showClaudeDesktopConfig(filePath, serverName) {
+  const data = readJson(filePath);
+  const entry = data.mcpServers?.[serverName] || data._disabled?.[serverName];
+  if (!entry) {
+    fail(`Server "${serverName}" not found in ${filePath}.`);
+  }
+  const details = normalizeServerDetails("claude-desktop", serverName, entry);
+  if (data._disabled?.[serverName]) {
+    details.disabled = true;
+  }
+  outputShow(filePath, serverName, details);
+}
+
+function whereClaudeDesktopConfig(filePath, serverName) {
+  const data = readJson(filePath);
+  const found = Boolean(data.mcpServers?.[serverName] || data._disabled?.[serverName]);
+  if (!found) {
+    fail(`Server "${serverName}" not found in ${filePath}.`);
+  }
+  outputWhere(filePath, serverName, found);
+}
+
+function printClaudeDesktopRestartNotice() {
+  process.stdout.write("Note: Restart Claude Desktop for changes to take effect.\n");
 }
 
 function resolveClaudeProjectKey(data, projectPath = process.cwd()) {
@@ -1475,7 +1636,7 @@ function showClaudeConfig(filePath, serverName, allProjects, projectPath) {
             options.outputNormalized
               ? {
                   project: key,
-                  ...normalizeServerDetails("claude", serverName, store[serverName]),
+                  ...normalizeServerDetails("claude-cli", serverName, store[serverName]),
                 }
               : {
                   project: key,
@@ -1508,7 +1669,7 @@ function showClaudeConfig(filePath, serverName, allProjects, projectPath) {
       fail(`Server "${serverName}" not found for ${projectKey}.`);
     }
     const details = options.outputNormalized
-      ? normalizeServerDetails("claude", serverName, entry, projectKey)
+      ? normalizeServerDetails("claude-cli", serverName, entry, projectKey)
       : cloneJsonLike(entry);
     outputShow(filePath, serverName, details, projectKey);
     return;
@@ -1519,7 +1680,7 @@ function showClaudeConfig(filePath, serverName, allProjects, projectPath) {
     fail(`Server "${serverName}" not found in ${filePath}.`);
   }
   const details = options.outputNormalized
-    ? normalizeServerDetails("claude", serverName, entry)
+    ? normalizeServerDetails("claude-cli", serverName, entry)
     : cloneJsonLike(entry);
   outputShow(filePath, serverName, details);
 }
@@ -1866,6 +2027,9 @@ Notes:
   For Claude, --local maps to the project scope file ./.mcp.json.
   For Codex, --local writes to ./.codex/config.toml.
   For Gemini, --local writes to ./.gemini/settings.json.
+
+Aliases:
+  claude   → claude-cli (Claude Code CLI)
 `);
     return;
   }
@@ -1877,7 +2041,7 @@ Usage:
   mcp-conf add --client <name> --name <serverName> [--env <name> | --env-path <path> | --session-env | --mcp <dest>] [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
+  --client <name>       cline | codex | claude-cli | claude-desktop | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --name <serverName>   required MCP server name key
   --env <name>          env profile name (stdio only), writes --env=<name>
   --env-path <path>     .env path (stdio only)
@@ -1906,7 +2070,7 @@ Usage:
   mcp-conf rm --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
+  --client <name>       cline | codex | claude-cli | claude-desktop | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -1926,7 +2090,7 @@ Usage:
   mcp-conf ls --client <name> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
+  --client <name>       cline | codex | claude-cli | claude-desktop | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --global              write to global user config (default)
   --local               write to project config (where supported)
   --all-projects        Claude global: list across all projects
@@ -1944,7 +2108,7 @@ Usage:
   mcp-conf enable --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
+  --client <name>       cline | codex | claude-cli | claude-desktop | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -1964,7 +2128,7 @@ Usage:
   mcp-conf disable --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
+  --client <name>       cline | codex | claude-cli | claude-desktop | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -1984,7 +2148,7 @@ Usage:
   mcp-conf where --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
+  --client <name>       cline | codex | claude-cli | claude-desktop | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              write to global user config (default)
   --local               write to project config (where supported)
@@ -2003,7 +2167,7 @@ Usage:
   mcp-conf show --client <name> --name <serverName> [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
+  --client <name>       cline | codex | claude-cli | claude-desktop | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --name <serverName>   required MCP server name key
   --global              read from global user config (default)
   --local               read from project config (where supported)
@@ -2024,7 +2188,7 @@ Usage:
   mcp-conf update --client <name> --name <serverName> [--env <name> | --env-path <path> | --session-env | --mcp <dest>] [options]
 
 Options:
-  --client <name>       cline | codex | claude | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
+  --client <name>       cline | codex | claude-cli | claude-desktop | goose | cursor | windsurf | opencode | kilo | copilot | antigravity | qwen | gemini | crush (repeatable)
   --name <serverName>   required MCP server name key
   --env <name>          env profile name (stdio only), writes --env=<name>
   --env-path <path>     .env path (stdio only)

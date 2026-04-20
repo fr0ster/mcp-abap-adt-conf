@@ -27,6 +27,14 @@ mcp-conf --client crush --name abap --transport http --url http://localhost:3000
 mcp-conf tui
 ```
 
+### Claude: CLI vs Desktop vs Connectors
+
+Anthropic ships several "Claude" products. `mcp-conf` configures MCP servers for two of them:
+
+- `--client claude-cli` (alias: `--client claude`) — **Claude Code CLI**. Writes to `~/.claude.json` (global) or `./.mcp.json` (local). Supports stdio / http / sse. No restart needed.
+- `--client claude-desktop` — **Claude Desktop GUI** (macOS / Windows). Writes to `claude_desktop_config.json`. Supports **stdio only**. You must restart Claude Desktop after changes. Linux is not officially supported by Anthropic.
+- **claude.ai Custom Connectors** (web UI) — cloud-side remote MCP, HTTPS only. **No public API**; add them manually via Settings → Connectors. `mcp-conf` cannot touch these.
+
 ## TUI
 
 `mcp-conf tui` starts an interactive wizard (`ls`/`show`/`add`/`update`/`rm`/`enable`/`disable`).
