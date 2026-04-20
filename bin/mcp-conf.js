@@ -609,7 +609,8 @@ function getClaudePath(homeDir, scopeValue) {
   return path.join(homeDir, ".claude.json");
 }
 
-function _getClaudeDesktopPath(platformValue, homeDir, appDataDir) {
+// biome-ignore lint/correctness/noUnusedVariables: wired up by later tasks
+function getClaudeDesktopPath(platformValue, homeDir, appDataDir) {
   if (platformValue === "darwin") {
     return path.join(
       homeDir,
