@@ -609,6 +609,22 @@ function getClaudePath(homeDir, scopeValue) {
   return path.join(homeDir, ".claude.json");
 }
 
+function _getClaudeDesktopPath(platformValue, homeDir, appDataDir) {
+  if (platformValue === "darwin") {
+    return path.join(
+      homeDir,
+      "Library",
+      "Application Support",
+      "Claude",
+      "claude_desktop_config.json",
+    );
+  }
+  if (platformValue === "win32") {
+    return path.join(appDataDir, "Claude", "claude_desktop_config.json");
+  }
+  fail("Claude Desktop is not officially available on Linux. Use --client claude-cli instead.");
+}
+
 function getGoosePath(platformValue, homeDir, appDataDir) {
   if (platformValue === "win32") {
     return path.join(appDataDir, "Block", "goose", "config", "config.yaml");
