@@ -8,7 +8,8 @@ const { spawnSync } = require("node:child_process");
 const CLIENTS = [
   { name: "cline", message: "Cline" },
   { name: "codex", message: "Codex" },
-  { name: "claude", message: "Claude" },
+  { name: "claude-cli", message: "Claude CLI" },
+  { name: "claude-desktop", message: "Claude Desktop" },
   { name: "goose", message: "Goose" },
   { name: "cursor", message: "Cursor" },
   { name: "windsurf", message: "Windsurf" },
@@ -267,7 +268,9 @@ function getSupportedScopes(clientName) {
   if (clientName === "copilot" || clientName === "gemini") {
     return ["local"];
   }
-  if (["cline", "goose", "windsurf", "antigravity", "qwen"].includes(clientName)) {
+  if (
+    ["cline", "goose", "windsurf", "antigravity", "qwen", "claude-desktop"].includes(clientName)
+  ) {
     return ["global"];
   }
   return ["global", "local"];
@@ -277,7 +280,7 @@ async function configureScope(result, clientName) {
   result.allProjects = false;
   result.projectPath = null;
 
-  if (clientName === "claude") {
+  if (clientName === "claude-cli") {
     result.scope = await askSelect("Scope", ["global", "local"]);
     if (result.scope === "local") {
       return;
@@ -303,6 +306,9 @@ function supportsClaudeGlobalAllProjects(action) {
 function getSupportedTransports(clientName) {
   if (clientName === "codex") {
     return ["stdio", "http"];
+  }
+  if (clientName === "claude-desktop") {
+    return ["stdio"];
   }
   return ["stdio", "sse", "http"];
 }
