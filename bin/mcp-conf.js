@@ -299,7 +299,7 @@ const serverArgs = serverArgsRaw.filter(Boolean);
 
 for (const client of options.clients) {
   const scope = options.scope || getDefaultScope(client);
-  if (options.projectPath && client !== "claude") {
+  if (options.projectPath && client !== "claude-cli") {
     fail("--project is only supported for Claude.");
   }
   switch (client) {
@@ -334,7 +334,7 @@ for (const client of options.clients) {
         );
       }
       break;
-    case "claude": {
+    case "claude-cli": {
       requireScope("Claude", ["global", "local"], scope);
       const claudeToggleScope = options.toggle ? "global" : scope;
       if (options.allProjects && claudeToggleScope !== "global") {
@@ -516,7 +516,13 @@ function normalizeClientName(clientName) {
     return clientName;
   }
   const normalized = clientName.toLowerCase();
-  return normalized === "kilo" ? "opencode" : normalized;
+  if (normalized === "kilo") {
+    return "opencode";
+  }
+  if (normalized === "claude") {
+    return "claude-cli";
+  }
+  return normalized;
 }
 
 function runTuiWizard(opts) {
@@ -713,7 +719,7 @@ function resolveProjectSelector(data, projectPath) {
 }
 
 function getDefaultDisabled(clientType) {
-  return ["cline", "codex", "windsurf", "goose", "claude", "opencode", "crush"].includes(
+  return ["cline", "codex", "windsurf", "goose", "claude-cli", "opencode", "crush"].includes(
     clientType,
   );
 }
@@ -947,7 +953,7 @@ function writeClaudeConfig(filePath, serverName, argsArray) {
     const disabled = projectNode.disabledMcpServers;
     const shouldDisable = options.toggle
       ? options.disabled
-      : options.disabled || getDefaultDisabled("claude");
+      : options.disabled || getDefaultDisabled("claude-cli");
     const removeFrom = (list) => {
       const idx = list.indexOf(serverName);
       if (idx >= 0) {
@@ -1475,7 +1481,7 @@ function showClaudeConfig(filePath, serverName, allProjects, projectPath) {
             options.outputNormalized
               ? {
                   project: key,
-                  ...normalizeServerDetails("claude", serverName, store[serverName]),
+                  ...normalizeServerDetails("claude-cli", serverName, store[serverName]),
                 }
               : {
                   project: key,
@@ -1508,7 +1514,7 @@ function showClaudeConfig(filePath, serverName, allProjects, projectPath) {
       fail(`Server "${serverName}" not found for ${projectKey}.`);
     }
     const details = options.outputNormalized
-      ? normalizeServerDetails("claude", serverName, entry, projectKey)
+      ? normalizeServerDetails("claude-cli", serverName, entry, projectKey)
       : cloneJsonLike(entry);
     outputShow(filePath, serverName, details, projectKey);
     return;
@@ -1519,7 +1525,7 @@ function showClaudeConfig(filePath, serverName, allProjects, projectPath) {
     fail(`Server "${serverName}" not found in ${filePath}.`);
   }
   const details = options.outputNormalized
-    ? normalizeServerDetails("claude", serverName, entry)
+    ? normalizeServerDetails("claude-cli", serverName, entry)
     : cloneJsonLike(entry);
   outputShow(filePath, serverName, details);
 }
