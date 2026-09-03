@@ -18,7 +18,7 @@
   is written on top of. The LGPL is a set of additional permissions over the GPL,
   so it cannot be read without both.
 
-  Copyright © 2025 Oleksii Kyslytsia.
+  Copyright © 2026 Oleksii Kyslytsia.
 
 
 ## [1.0.0] - 2026-04-20
