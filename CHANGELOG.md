@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-09-28
+
+### Added
+
+- **`version`, `--version` and `-v`** print the version and exit, before
+  anything else runs, the same set as every other CLI of the family. Up to
+  1.1.1 each of them answered "Provide a command: add | rm | ls | …" and exited
+  with 1. `help` lists `help` and `version` among the commands, and the README
+  shows both.
+
 ## [1.1.1] - 2026-09-27
 
 ### Security

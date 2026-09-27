@@ -25,6 +25,8 @@ mcp-conf --client qwen --name abap --transport http --url http://localhost:3000/
 mcp-conf --client crush --name abap --mcp TRIAL
 mcp-conf --client crush --name abap --transport http --url http://localhost:3000/mcp/stream/http
 mcp-conf tui
+mcp-conf help          # or --help, -h; `mcp-conf help <command>` for one command
+mcp-conf version       # or --version, -v
 ```
 
 ### Claude: CLI vs Desktop vs Connectors
