@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-09-27
+
+### Security
+
+- `yaml` `^2.9.1` (was `^2.8.1`): 2.8.2 and earlier overflow the stack on
+  deeply nested YAML collections. `npm audit`: 1 moderate → 0.
+
+1.1.0 was released on GitHub only; on npm this follows 1.0.0 and carries
+1.1.0's licence change as well.
+
 ## [1.1.0] - 2026-09-03
 
 ### Licence
