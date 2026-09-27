@@ -23,6 +23,12 @@ try {
 }
 
 const args = process.argv.slice(2);
+// Before anything reads options: the version answers alone, as in every CLI
+// of the family.
+if (args[0] === "version" || args[0] === "--version" || args[0] === "-v") {
+  process.stdout.write(`${require("../package.json").version}\n`);
+  process.exit(0);
+}
 const action = args[0] && !args[0].startsWith("-") ? args[0] : null;
 if (
   action &&
@@ -2002,6 +2008,7 @@ Usage:
   mcp-conf <add|rm|ls|show|enable|disable|where|update> --client <name> [options]
   mcp-conf tui
   mcp-conf help <command>
+  mcp-conf version
 
 Commands:
   add       add or update an MCP server entry
@@ -2013,6 +2020,8 @@ Commands:
   where     show where a server name is defined
   update    update an existing server entry
   tui       interactive setup wizard
+  help      show this help, or a command's (also --help, -h)
+  version   print the version (also --version, -v)
 
 Run:
   mcp-conf <command> --help
